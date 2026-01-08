@@ -100,8 +100,8 @@ export async function POST(request: Request) {
 
     const payload: ActionPostResponse = await createPostResponse({
       fields: {
-        transaction: tx,
-        type: "transaction", // ✅
+        transaction: tx.serialize({ requireAllSignatures: false }),
+        message: `Sending 💩 Poop to ${recipientAddress.slice(0, 6)}...`,
       },
     });
 

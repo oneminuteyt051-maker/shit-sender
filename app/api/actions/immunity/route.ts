@@ -68,12 +68,9 @@ export async function POST(request: Request) {
       })
     );
 
-    // ✅ ИСПРАВЛЕННЫЙ БЛОК:
-    // Мы передаем объект tx напрямую в поле transaction.
-    // Поле 'type' здесь не нужно, оно вызывает ошибку типизации.
     const payload: ActionPostResponse = await createPostResponse({
       fields: {
-        transaction: tx,
+        transaction: tx.serialize({ requireAllSignatures: false }),
         message: "Immunity Badge Unlocked! 🛡️",
       },
     });
