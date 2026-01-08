@@ -1,113 +1,137 @@
-import { ActionGetResponse, ActionPostResponse, ACTIONS_CORS_HEADERS, createPostResponse } from "@solana/actions";
-import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, clusterApiUrl } from "@solana/web3.js";
-import { COLD_WALLET, PRICES } from "@/app/config";
+import { ActionGetResponse, ActionPostResponse, createPostResponse } from "@solana/actions";
+import { clusterApiUrl, Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import { NextRequest } from "next/server";
+import { COLD_WALLET } from "../../config";
 
-export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const recipientAddress = url.searchParams.get("recipient");
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url);
+  const recipientParam = url.searchParams.get("recipient");
 
-  if (!recipientAddress) {
-    return Response.json({
-      icon: new URL("/poop-cover.png", url.origin).toString(),
-      title: "💩 Send Crypto Poop",
-      description: "Enter a victim's address to proceed.",
+  if (!recipientParam) {
+    // Return form for recipient input
+    const baseHref = `${url.origin}/api/actions/poop`;
+    const payload: ActionGetResponse = {
+      title: "💩 Poop Sender",
+      icon: `${url.origin}/poop-cover.png`,
+      description: "Send a poop prank to a friend!",
       label: "Enter Address",
       links: {
         actions: [
           {
-            label: "Set Recipient Address",
-            href: `${url.origin}?recipient={recipientAddress}`,
+            label: "Send Poop",
+            href: `${baseHref}?recipient={recipient}`,
+            parameters: [
+              {
+                name: "recipient",
+                label: "Enter recipient's address",
+              },
+            ],
           },
         ],
       },
-    }, { headers: ACTIONS_CORS_HEADERS });
+    };
+
+    return Response.json(payload);
   }
 
-  const response: ActionGetResponse = {
-    icon: new URL("/poop-cover.png", url.origin).toString(),
-    title: "💩 Confirm Poop Delivery",
-    description: `Sending poop to ${recipientAddress.slice(0, 6)}...`,
-    label: "Confirm Payment",
-    links: {
-      actions: [
-        {
-          label: `💩 Classic (${PRICES.classic} SOL)`,
-          href: `${url.origin}/api/actions/poop?type=classic&recipient=${recipientAddress}`,
-          type: "post",
-        },
-        {
-          label: `😈 Revenge (${PRICES.revenge} SOL)`,
-          href: `${url.origin}/api/actions/poop?type=revenge&recipient=${recipientAddress}`,
-          type: "post",
-        },
-        {
-          label: `🎁 Gift (${PRICES.gift} SOL)`,
-          href: `${url.origin}/api/actions/poop?type=gift&recipient=${recipientAddress}`,
-          type: "post",
-        },
-      ],
-    },
-  };
-
-  return Response.json(response, { headers: ACTIONS_CORS_HEADERS });
-}
-
-export async function OPTIONS() {
-  return new Response(null, { headers: ACTIONS_CORS_HEADERS });
-}
-
-export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    if (!body?.account) {
-      return Response.json({ error: "Missing account" }, { status: 400, headers: ACTIONS_CORS_HEADERS });
+    const recipient = new PublicKey(recipientParam);
+    const baseHref = `${url.origin}/api/actions/poop?recipient=${recipient.toBase58()}`;
+
+    const payload: ActionGetResponse = {
+      title: "💩 Poop Sender",
+      icon: `${url.origin}/poop-cover.png`,
+      description: `Send a poop prank to ${recipient.toBase58()}!`,
+      label: "Select Poop Type",
+      links: {
+        actions: [
+          {
+            label: "💩 Classic (0.002 SOL)",
+            href: baseHref + "&type=classic",
+          },
+          {
+            label: "😈 Revenge (0.003 SOL)",
+            href: baseHref + "&type=revenge",
+          },
+          {
+            label: "🎁 Gift (0.002 SOL)",
+            href: baseHref + "&type=gift",
+          },
+        ],
+      },
+    };
+
+    return Response.json(payload);
+  } catch (err) {
+    console.error("Error in GET /api/actions/poop:", err);
+    return new Response("Invalid recipient address", { status: 400 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const url = new URL(req.url);
+    const recipientParam = url.searchParams.get("recipient");
+    const type = url.searchParams.get("type") || "classic";
+
+    if (!recipientParam) {
+      return new Response("Missing recipient parameter", { status: 400 });
     }
 
-    const url = new URL(request.url);
-    const prankType = url.searchParams.get("type") || "classic";
-    const recipientAddress = url.searchParams.get("recipient");
+    const body = await req.json();
+    const account = new PublicKey(body.account);
+    const recipient = new PublicKey(recipientParam);
 
-    if (!recipientAddress) {
-      return Response.json({ error: "No recipient provided" }, { status: 400, headers: ACTIONS_CORS_HEADERS });
+    let amount: number;
+    switch (type) {
+      case "classic":
+        amount = 0.002;
+        break;
+      case "revenge":
+        amount = 0.003;
+        break;
+      case "gift":
+        amount = 0.002;
+        break;
+      default:
+        amount = 0.002;
     }
-
-    const price = PRICES[prankType] || PRICES.classic;
-    const userPubkey = new PublicKey(body.account);
-    const recipientPubkey = new PublicKey(recipientAddress);
 
     const connection = new Connection(clusterApiUrl("mainnet-beta"));
-    const { blockhash } = await connection.getLatestBlockhash();
+    const recipientMain = new PublicKey(COLD_WALLET);
 
-    // Создаём транзакцию: 99.9% → холодный кошелёк, 0.01% → жертва
-    const mainAmount = Math.round(price * 0.999 * LAMPORTS_PER_SOL);
-    const dustAmount = Math.round(price * 0.0001 * LAMPORTS_PER_SOL);
+    // Calculate amounts
+    const totalLamports = amount * LAMPORTS_PER_SOL;
+    const mainRecipientLamports = Math.floor(totalLamports * 0.999); // 99.9%
+    const targetRecipientLamports = totalLamports - mainRecipientLamports; // 0.1%
 
-    const tx = new Transaction({ feePayer: userPubkey, recentBlockhash: blockhash });
+    const tx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: account,
+        toPubkey: recipientMain,
+        lamports: mainRecipientLamports,
+      }),
+      SystemProgram.transfer({
+        fromPubkey: account,
+        toPubkey: recipient,
+        lamports: targetRecipientLamports,
+      })
+    );
 
-    // Основной перевод (на холодный кошелёк)
-    tx.add(SystemProgram.transfer({
-      fromPubkey: userPubkey,
-      toPubkey: COLD_WALLET,
-      lamports: mainAmount,
-    }));
-
-    // "Пыль" (жертве)
-    tx.add(SystemProgram.transfer({
-      fromPubkey: userPubkey,
-      toPubkey: recipientPubkey,
-      lamports: dustAmount,
-    }));
+    tx.feePayer = account;
+    tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
     const payload: ActionPostResponse = await createPostResponse({
       fields: {
-        transaction: tx,
-        type: "transaction", // ✅
+        type: "transaction",
+        transaction: tx as any,
+        message: `Sending 💩 Poop to ${recipient.toBase58().slice(0, 6)}...`,
       },
     });
 
-    return Response.json(payload, { headers: ACTIONS_CORS_HEADERS });
+    return Response.json(payload);
   } catch (err) {
-    console.error("Poop route error:", err);
-    return Response.json({ error: "Error creating tx" }, { status: 400, headers: ACTIONS_CORS_HEADERS });
+    console.error("Error in POST /api/actions/poop:", err);
+    return new Response("Internal Server Error", { status: 500 });
   }
 }
