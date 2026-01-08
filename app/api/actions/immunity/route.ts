@@ -14,7 +14,7 @@ export async function GET(request: Request) {
         {
           label: `🛡️ Immunity (${PRICES.immunity} SOL)`,
           href: `${url.origin}/api/actions/immunity`,
-          type: "post", // ❗ Добавьте это
+          type: "post", // ❗ Обязательно добавьте это
         },
       ],
     },
