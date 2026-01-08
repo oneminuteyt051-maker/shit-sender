@@ -14,7 +14,7 @@ import {
 } from "@solana/web3.js";
 import { COLD_WALLET, PRICES } from "@/app/config";
 
-// --- GET: Описание действия для кошелька ---
+// Метод GET: Что видит пользователь в кошельке
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const response: ActionGetResponse = {
@@ -35,17 +35,16 @@ export async function GET(request: Request) {
   return Response.json(response, { headers: ACTIONS_CORS_HEADERS });
 }
 
-// --- OPTIONS: Обработка CORS (обязательно для Blink) ---
+// Метод OPTIONS: Нужен для работы CORS в браузере
 export async function OPTIONS() {
   return new Response(null, { headers: ACTIONS_CORS_HEADERS });
 }
 
-// --- POST: Создание транзакции ---
+// Метод POST: Создание и возврат транзакции
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Проверка наличия публичного ключа пользователя
     if (!body?.account) {
       return Response.json(
         { error: "Missing account" }, 
@@ -57,29 +56,25 @@ export async function POST(request: Request) {
     const connection = new Connection(clusterApiUrl("mainnet-beta"));
     const { blockhash } = await connection.getLatestBlockhash();
 
-    // Проверяем, установлена ли цена для immunity
-    const amount = PRICES.immunity;
-    if (!amount) {
-        throw new Error("Price for immunity not found in config");
-    }
-
-    // Создаем транзакцию
+    // Создаем транзакцию перевода
     const tx = new Transaction({ 
       feePayer: userPubkey, 
       recentBlockhash: blockhash 
     }).add(
       SystemProgram.transfer({
         fromPubkey: userPubkey,
-        toPubkey: COLD_WALLET, // Используем напрямую, так как это уже PublicKey в config.ts
-        lamports: Math.round(amount * LAMPORTS_PER_SOL),
+        toPubkey: COLD_WALLET, // COLD_WALLET уже является PublicKey в твоем config.ts
+        lamports: Math.round(PRICES.immunity * LAMPORTS_PER_SOL),
       })
     );
 
-    // Формируем ответ согласно спецификации Solana Actions
+    // ✅ ИСПРАВЛЕННЫЙ БЛОК:
+    // Мы передаем объект tx напрямую в поле transaction.
+    // Поле 'type' здесь не нужно, оно вызывает ошибку типизации.
     const payload: ActionPostResponse = await createPostResponse({
       fields: {
         transaction: tx,
-        message: "You have successfully purchased immunity! 🛡️",
+        message: "Immunity Badge Unlocked! 🛡️",
       },
     });
 
@@ -87,7 +82,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("Build Error:", err);
     return Response.json(
-      { error: "Failed to create transaction. Please try again." }, 
+      { error: "Error creating transaction" }, 
       { status: 400, headers: ACTIONS_CORS_HEADERS }
     );
   }
