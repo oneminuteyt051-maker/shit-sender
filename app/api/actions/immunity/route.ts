@@ -48,7 +48,10 @@ export async function POST(request: Request) {
 
     const payload: ActionPostResponse = await createPostResponse({
       fields: {
-        transaction: { transaction: tx, type: "transaction" }, // ✅
+        transaction: {
+          transaction: tx,
+          type: "transaction", // ✅
+        },
       },
     });
 
