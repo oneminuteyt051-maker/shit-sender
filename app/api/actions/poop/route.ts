@@ -32,14 +32,17 @@ export async function GET(request: Request) {
       {
         label: `💩 Classic (${PRICES.classic} SOL)`,
         href: `${url.origin}/api/actions/poop?type=classic&recipient=${recipientAddress}`,
+		type: "post", // ❗
       },
       {
         label: `😈 Revenge (${PRICES.revenge} SOL)`,
         href: `${url.origin}/api/actions/poop?type=revenge&recipient=${recipientAddress}`,
+		type: "post", // ❗
       },
       {
         label: `🎁 Gift (${PRICES.gift} SOL)`,
         href: `${url.origin}/api/actions/poop?type=gift&recipient=${recipientAddress}`,
+		type: "post", // ❗
       },
     ],
   };

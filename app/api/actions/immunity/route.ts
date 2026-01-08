@@ -14,6 +14,7 @@ export async function GET(request: Request) {
         {
           label: `🛡️ Immunity (${PRICES.immunity} SOL)`,
           href: `${url.origin}/api/actions/immunity`,
+          type: "post", // ❗ Добавьте это
         },
       ],
     },
@@ -42,10 +43,7 @@ export async function POST(request: Request) {
     );
 
     const payload: ActionPostResponse = await createPostResponse({
-      fields: {
-        transaction: tx,
-        // message: "Removed due to Solana Actions v2" ← нельзя
-      },
+      fields: { transaction: tx },
     });
 
     return Response.json(payload, { headers: ACTIONS_CORS_HEADERS });
