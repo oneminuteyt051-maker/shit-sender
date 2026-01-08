@@ -6,9 +6,17 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const response: ActionGetResponse = {
     icon: new URL("/immunity-badge.png", url.origin).toString(),
-    title: "🛡 Poop Immunity Certificate",
-    description: "Get the badge. Stay safe from crypto poop.",
-    label: "Buy Immunity",
+    title: "🛡️ Get Poop Immunity",
+    description: "Pay to unlock your immunity badge and avoid future poops!",
+    label: "Unlock Immunity",
+    links: {
+      actions: [
+        {
+          label: `🛡️ Immunity (${PRICES.immunity} SOL)`,
+          href: `${url.origin}/api/actions/immunity`,
+        },
+      ],
+    },
   };
   return Response.json(response, { headers: ACTIONS_CORS_HEADERS });
 }
@@ -21,6 +29,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const userPubkey = new PublicKey(body.account);
+
     const connection = new Connection(clusterApiUrl("mainnet-beta"));
     const { blockhash } = await connection.getLatestBlockhash();
 
@@ -32,13 +41,10 @@ export async function POST(request: Request) {
       })
     );
 
-    const url = new URL(request.url);
-    const immuneLink = `${url.origin}/immune`;
-
     const payload: ActionPostResponse = await createPostResponse({
       fields: {
         transaction: tx,
-        message: `Unlocked! Share your badge: ${immuneLink}`,
+        // message: "Removed due to Solana Actions v2" ← нельзя
       },
     });
 

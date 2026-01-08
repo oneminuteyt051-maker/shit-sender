@@ -7,6 +7,10 @@ export const GET = async () => {
         pathPattern: "/api/actions/poop*",
         apiPath: "/api/actions/poop",
       },
+      {
+        pathPattern: "/api/actions/immunity*",
+        apiPath: "/api/actions/immunity",
+      },
     ],
   };
 

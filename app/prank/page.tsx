@@ -8,14 +8,14 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     title: '⚠️ URGENT WALLET ALERT',
     description: 'Check your wallet activity immediately.',
     openGraph: {
-      images: [`/poop-${searchParams.id || 'classic'}.png`], // Картинка-превью в мессенджере
+      images: [`/poop-${searchParams.id || 'classic'}.png`],
     },
   };
 }
 
 export default function PrankPage({ searchParams }: Props) {
   const id = searchParams.id || 'classic';
-  
+
   const content: Record<string, { title: string; text: string; img: string }> = {
     classic: { title: "YOU GOT POOPED", text: "Expecting alpha? You got crypto poop.", img: "/poop-classic.png" },
     revenge: { title: "REVENGE POOP", text: "Someone hit you back.", img: "/poop-revenge.png" },
@@ -23,6 +23,8 @@ export default function PrankPage({ searchParams }: Props) {
   };
 
   const data = content[id] || content.classic;
+
+  const tweetText = encodeURIComponent(`💩 Just got pranked on @PoopProtocol! Try sending a crypto-poop to your friends: https://shit-sender.vercel.app`);
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
@@ -38,6 +40,15 @@ export default function PrankPage({ searchParams }: Props) {
           🛡 Buy Immunity
         </Link>
       </div>
+
+      <a
+        href={`https://twitter.com/intent/tweet?text=${tweetText}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-6 bg-blue-500 px-6 py-3 rounded-full font-bold hover:bg-blue-600"
+      >
+        🐦 Share on X
+      </a>
     </div>
   );
 }
