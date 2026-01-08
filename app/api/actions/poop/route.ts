@@ -99,7 +99,9 @@ export async function POST(request: Request) {
     }));
 
     const payload: ActionPostResponse = await createPostResponse({
-      fields: { transaction: tx },
+      fields: {
+        transaction: { transaction: tx, type: "transaction" }, // ✅
+      },
     });
 
     return Response.json(payload, { headers: ACTIONS_CORS_HEADERS });
