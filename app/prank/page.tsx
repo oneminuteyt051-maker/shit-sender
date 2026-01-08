@@ -1,28 +1,43 @@
-'use client';
-import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Metadata } from 'next';
+import Link from 'next/link';
 
-function PrankContent() {
-  const params = useSearchParams();
-  const id = params.get('id') || 'classic';
-  const content: any = {
-    classic: { title: "URGENT WALLET ALERT", text: "You were expecting alpha. You received crypto poop.", img: "/poop-classic.png" },
-    revenge: { title: "REVENGE MODE", text: "Someone sent you crypto poop. Time to send it back.", img: "/poop-revenge.png" },
-    gift: { title: "YOU HAVE BEEN POOPED", text: "This is not financial advice. This is poop.", img: "/poop-gift.png" },
+type Props = { searchParams: { id?: string } };
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  return {
+    title: '⚠️ URGENT WALLET ALERT',
+    description: 'Check your wallet activity immediately.',
+    openGraph: {
+      images: [`/poop-${searchParams.id || 'classic'}.png`], // Картинка-превью в мессенджере
+    },
   };
+}
+
+export default function PrankPage({ searchParams }: Props) {
+  const id = searchParams.id || 'classic';
+  
+  const content: Record<string, { title: string; text: string; img: string }> = {
+    classic: { title: "YOU GOT POOPED", text: "Expecting alpha? You got crypto poop.", img: "/poop-classic.png" },
+    revenge: { title: "REVENGE POOP", text: "Someone hit you back.", img: "/poop-revenge.png" },
+    gift: { title: "A GIFT FOR YOU", text: "It's not money, it's poop.", img: "/poop-gift.png" },
+  };
+
   const data = content[id] || content.classic;
 
   return (
-    <div style={{ background:'#000', color:'#fff', minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:40, textAlign:'center', fontFamily:'sans-serif' }}>
-      <h1 style={{ color:'red', fontSize:'3rem' }}>{data.title}</h1>
-      <img src={data.img} style={{ maxWidth:400, margin:'30px 0' }} />
-      <p style={{ fontSize:'1.5rem', maxWidth:600 }}>{data.text}</p>
-      <div style={{ marginTop:50, display:'flex', flexDirection:'column', gap:15 }}>
-        <a href="/api/actions/poop?type=revenge" style={{color:'#00ff00', textDecoration:'none', fontSize:'1.2rem'}}>😈 Send back (Revenge)</a>
-        <a href="/api/actions/immunity" style={{color:'#ffd700', textDecoration:'none', fontSize:'1.2rem'}}>🛡 Buy Immunity Certificate</a>
+    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
+      <h1 className="text-4xl font-bold text-red-500 mb-6">{data.title}</h1>
+      <img src={data.img} alt="Meme" className="w-64 h-64 object-contain mb-6" />
+      <p className="text-xl max-w-md mb-8">{data.text}</p>
+
+      <div className="flex flex-col gap-4 w-full max-w-xs">
+        <Link href="/api/actions/poop?type=revenge" className="bg-red-600 py-3 rounded font-bold hover:bg-red-700">
+          😈 Send Revenge
+        </Link>
+        <Link href="/api/actions/immunity" className="bg-yellow-600 py-3 rounded font-bold hover:bg-yellow-700">
+          🛡 Buy Immunity
+        </Link>
       </div>
     </div>
   );
 }
-
-export default function Page() { return <Suspense fallback={<div>Loading...</div>}><PrankContent/></Suspense>; }
