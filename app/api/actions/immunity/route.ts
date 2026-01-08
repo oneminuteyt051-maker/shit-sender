@@ -1,6 +1,6 @@
 import { ActionGetResponse, ActionPostResponse, ACTIONS_CORS_HEADERS, createPostResponse } from "@solana/actions";
 import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, clusterApiUrl } from "@solana/web3.js";
-import { MY_WALLET, PRICES } from "@/app/config";
+import { COLD_WALLET, PRICES } from "@/app/config";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
         {
           label: `🛡️ Immunity (${PRICES.immunity} SOL)`,
           href: `${url.origin}/api/actions/immunity`,
-          type: "post", // ❗ Обязательно добавьте это
+          type: "post",
         },
       ],
     },
@@ -29,6 +29,10 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    if (!body?.account) {
+      return Response.json({ error: "Missing account" }, { status: 400, headers: ACTIONS_CORS_HEADERS });
+    }
+
     const userPubkey = new PublicKey(body.account);
 
     const connection = new Connection(clusterApiUrl("mainnet-beta"));
@@ -37,7 +41,7 @@ export async function POST(request: Request) {
     const tx = new Transaction({ feePayer: userPubkey, recentBlockhash: blockhash }).add(
       SystemProgram.transfer({
         fromPubkey: userPubkey,
-        toPubkey: MY_WALLET,
+        toPubkey: COLD_WALLET,
         lamports: Math.round(PRICES.immunity * LAMPORTS_PER_SOL),
       })
     );

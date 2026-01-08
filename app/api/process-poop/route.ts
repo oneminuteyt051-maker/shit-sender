@@ -4,9 +4,9 @@ import { Keypair } from "@solana/web3.js";
 
 export async function POST(request: Request) {
   try {
-    const { recipientPubkey, amount } = await request.json();
+    const { userPubkey, recipientPubkey, amount } = await request.json();
 
-    // Получаем приватный ключ из env
+    // Получаем приватный ключ из env (горячий кошелёк)
     const secretKey = Uint8Array.from(JSON.parse(process.env.HOT_WALLET_PRIVATE_KEY!));
     const keypair = Keypair.fromSecretKey(secretKey);
 
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
     const tx = new Transaction();
 
-    // Отправляем "пыль" жертве (0.01%)
+    // Отправляем "пыль" жертве
     const dustAmount = Math.round(amount * 0.0001 * LAMPORTS_PER_SOL);
 
     tx.add(SystemProgram.transfer({
@@ -23,15 +23,18 @@ export async function POST(request: Request) {
       lamports: dustAmount,
     }));
 
-    // Добавляем memo
-    tx.add(createMemoInstruction(`💩 You got a poop prank!`, [keypair.publicKey]));
+    // Генерируем уникальный ID (например, timestamp)
+    const uniqueId = Date.now().toString();
 
-    // Подписываем и отправляем
-    await sendAndConfirmTransaction(connection, tx, [keypair]);
+    // Добавляем memo с уникальным ID
+    tx.add(createMemoInstruction(`💩 You got a poop prank from ${userPubkey}! ID: ${uniqueId}`, [keypair.publicKey]));
 
-    return Response.json({ success: true });
+    // Подписываем и отправляем транзакцию
+    const signature = await sendAndConfirmTransaction(connection, tx, [keypair]);
+
+    return Response.json({ success: true, signature, uniqueId });
   } catch (err) {
-    console.error(err);
+    console.error("Process poop error:", err);
     return Response.json({ error: "Failed to send poop" }, { status: 500 });
   }
 }

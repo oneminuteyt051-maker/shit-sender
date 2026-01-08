@@ -1,6 +1,6 @@
 import { ActionGetResponse, ActionPostResponse, ACTIONS_CORS_HEADERS, createPostResponse } from "@solana/actions";
 import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, clusterApiUrl } from "@solana/web3.js";
-import { MY_WALLET, PRICES } from "@/app/config";
+import { COLD_WALLET, PRICES } from "@/app/config";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -28,23 +28,25 @@ export async function GET(request: Request) {
     title: "💩 Confirm Poop Delivery",
     description: `Sending poop to ${recipientAddress.slice(0, 6)}...`,
     label: "Confirm Payment",
-    links: [
-      {
-        label: `💩 Classic (${PRICES.classic} SOL)`,
-        href: `${url.origin}/api/actions/poop?type=classic&recipient=${recipientAddress}`,
-		type: "post", // ❗
-      },
-      {
-        label: `😈 Revenge (${PRICES.revenge} SOL)`,
-        href: `${url.origin}/api/actions/poop?type=revenge&recipient=${recipientAddress}`,
-		type: "post", // ❗
-      },
-      {
-        label: `🎁 Gift (${PRICES.gift} SOL)`,
-        href: `${url.origin}/api/actions/poop?type=gift&recipient=${recipientAddress}`,
-		type: "post", // ❗
-      },
-    ],
+    links: {
+      actions: [
+        {
+          label: `💩 Classic (${PRICES.classic} SOL)`,
+          href: `${url.origin}/api/actions/poop?type=classic&recipient=${recipientAddress}`,
+          type: "post",
+        },
+        {
+          label: `😈 Revenge (${PRICES.revenge} SOL)`,
+          href: `${url.origin}/api/actions/poop?type=revenge&recipient=${recipientAddress}`,
+          type: "post",
+        },
+        {
+          label: `🎁 Gift (${PRICES.gift} SOL)`,
+          href: `${url.origin}/api/actions/poop?type=gift&recipient=${recipientAddress}`,
+          type: "post",
+        },
+      ],
+    },
   };
 
   return Response.json(response, { headers: ACTIONS_CORS_HEADERS });
@@ -57,6 +59,10 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    if (!body?.account) {
+      return Response.json({ error: "Missing account" }, { status: 400, headers: ACTIONS_CORS_HEADERS });
+    }
+
     const url = new URL(request.url);
     const prankType = url.searchParams.get("type") || "classic";
     const recipientAddress = url.searchParams.get("recipient");
@@ -72,16 +78,16 @@ export async function POST(request: Request) {
     const connection = new Connection(clusterApiUrl("mainnet-beta"));
     const { blockhash } = await connection.getLatestBlockhash();
 
-    // Создаём транзакцию: 99.9% → ваш кошелёк, 0.01% → жертва
+    // Создаём транзакцию: 99.9% → холодный кошелёк, 0.01% → жертва
     const mainAmount = Math.round(price * 0.999 * LAMPORTS_PER_SOL);
-    const dustAmount = Math.round(price * 0.0001 * LAMPORTS_PER_SOL); // 0.01%
+    const dustAmount = Math.round(price * 0.0001 * LAMPORTS_PER_SOL);
 
     const tx = new Transaction({ feePayer: userPubkey, recentBlockhash: blockhash });
 
-    // Основной перевод (вам)
+    // Основной перевод (на холодный кошелёк)
     tx.add(SystemProgram.transfer({
       fromPubkey: userPubkey,
-      toPubkey: MY_WALLET,
+      toPubkey: COLD_WALLET,
       lamports: mainAmount,
     }));
 
@@ -91,16 +97,6 @@ export async function POST(request: Request) {
       toPubkey: recipientPubkey,
       lamports: dustAmount,
     }));
-
-    // Вызываем бэкенд для отправки "пыли" и memo
-    await fetch(`${url.origin}/api/process-poop`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        recipientPubkey: recipientAddress,
-        amount: price,
-      }),
-    });
 
     const payload: ActionPostResponse = await createPostResponse({
       fields: { transaction: tx },

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 export default function Home() {
   const [recipientAddress, setRecipientAddress] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent, type: string) => {
     e.preventDefault();
@@ -12,10 +13,31 @@ export default function Home() {
     window.location.href = `/api/actions/poop?type=${type}&recipient=${encodeURIComponent(recipientAddress)}`;
   };
 
+  const handleTestPoop = async () => {
+    if (!recipientAddress) return alert("Введите адрес жертвы!");
+    setLoading(true);
+    try {
+      const res = await fetch('/api/process-poop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userPubkey: "REAL_USER_PUBKEY_HERE", // ← замените на реальный pubkey
+          recipientPubkey: recipientAddress,
+          amount: 0.002,
+        }),
+      });
+      if (res.ok) alert("Poop sent!");
+      else alert("Error sending poop.");
+    } catch (err) {
+      console.error(err);
+      alert("Error sending poop.");
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black text-white font-sans p-8">
       <main className="max-w-2xl text-center flex flex-col items-center gap-8">
-        {/* Лого / Иконка */}
         <div className="text-8xl">💩</div>
 
         <h1 className="text-5xl font-extrabold tracking-tighter sm:text-7xl">
@@ -28,7 +50,6 @@ export default function Home() {
           Pure memes, pure vibes, instant transactions.
         </p>
 
-        {/* Форма ввода адреса жертвы */}
         <form className="w-full max-w-md">
           <input
             type="text"
@@ -40,7 +61,6 @@ export default function Home() {
         </form>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full justify-center mt-4">
-          {/* Кнопки с отправкой через форму */}
           <button
             onClick={(e) => handleSubmit(e, "classic")}
             className="bg-white text-black px-8 py-4 rounded-full font-bold text-lg hover:bg-zinc-200 transition-all w-full sm:w-auto"
@@ -63,6 +83,14 @@ export default function Home() {
           </button>
         </div>
 
+        <button
+          onClick={handleTestPoop}
+          disabled={loading}
+          className="bg-purple-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-purple-700 transition-all w-full sm:w-auto"
+        >
+          {loading ? "Sending..." : "Test Poop (Debug)"}
+        </button>
+
         <Link
           href="/api/actions/immunity"
           className="border border-zinc-700 px-8 py-4 rounded-full font-bold text-lg hover:bg-zinc-900 transition-all w-full sm:w-auto"
@@ -70,7 +98,6 @@ export default function Home() {
           🛡️ Get Immunity (0.006 SOL)
         </Link>
 
-        {/* Футер для солидности */}
         <div className="mt-12 pt-8 border-t border-zinc-800 w-full flex justify-between text-zinc-500 text-sm">
           <span>Built on Solana Blinks</span>
           <span>No utility. Only poop.</span>
