@@ -16,7 +16,12 @@ export default function AppWalletProvider({
   children: React.ReactNode;
 }) {
   const network = WalletAdapterNetwork.Mainnet;
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+
+  // ВОТ ГЛАВНОЕ ИСПРАВЛЕНИЕ:
+  // Берем твой Helius URL из настроек Vercel
+  const endpoint = useMemo(() => 
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl(network), 
+  [network]);
 
   const wallets = useMemo(
     () => [
