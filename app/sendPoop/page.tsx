@@ -132,19 +132,20 @@ export default function SendPoopPage() {
         </p>
 
         <input
-          type="text"
-          placeholder="Recipient address"
-          value={recipient}
-          onChange={(e) => setRecipient(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "0.75rem",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            marginBottom: 24,
-            fontSize: 16,
-          }}
-        />
+         type="text"
+        placeholder="Enter victim's address"
+        value={recipient}
+        onChange={(e) => setRecipient(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "0.75rem",
+          borderRadius: 8,
+          border: "1px solid #ccc",
+          marginBottom: 24,
+          fontSize: 16,
+        }}
+      />
+
 
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24 }}>
           {Object.entries(POOP_CONFIG).map(([key, value]) => (
