@@ -1,12 +1,18 @@
 {
-  "rules": [
+  "actions": [
     {
-      "pathPattern": "/api/actions/poop*",
-      "apiPath": "/api/actions/poop"
+      "id": "poop",
+      "title": "Poop Protocol",
+      "description": "Send a poop prank on Solana",
+      "icon": "https://shit-sender.vercel.app/poop-cover.png",
+      "url": "https://shit-sender.vercel.app/api/actions/poop"
     },
     {
-      "pathPattern": "/api/actions/immunity*",
-      "apiPath": "/api/actions/immunity"
+      "id": "immunity",
+      "title": "Immunity Badge",
+      "description": "Purchase immunity from poop pranks",
+      "icon": "https://shit-sender.vercel.app/immunity-badge.png",
+      "url": "https://shit-sender.vercel.app/api/actions/immunity"
     }
   ]
 }
