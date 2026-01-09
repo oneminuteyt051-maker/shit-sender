@@ -29,7 +29,7 @@ export default function SendPoopPage() {
   useEffect(() => {
     const solana = (window as any).solana;
     if (solana && solana.isPhantom) setWallet(solana);
-    else setMessage("Install Phantom Wallet to send poops");
+    else setMessage("Install Phantom Wallet or another Solana wallet");
   }, []);
 
   const handleSend = async () => {
@@ -39,6 +39,7 @@ export default function SendPoopPage() {
     }
 
     try {
+      // Создаем Deeplink и API запрос на транзакцию
       const apiUrl = `/api/actions/poop?type=${type}&recipient=${recipient}`;
       const res = await fetch(apiUrl, {
         method: "POST",
@@ -52,7 +53,7 @@ export default function SendPoopPage() {
         return;
       }
 
-      // Создаем 5 летящих какашек при отправке
+      // Летающие какашки
       for (let i = 0; i < 5; i++) {
         setPoopId((id) => id + 1);
         setPoops((prev) => [
@@ -60,8 +61,8 @@ export default function SendPoopPage() {
           {
             id: poopId + i,
             icon: POOP_CONFIG[type].icon,
-            x: 50 + Math.random() * 80, // смещение X в %
-            y: 90, // старт снизу
+            x: 50 + Math.random() * 80,
+            y: 90,
             rotation: Math.random() * 360,
           },
         ]);
@@ -72,7 +73,20 @@ export default function SendPoopPage() {
       );
       const transaction = Transaction.from(txBytes);
 
-      const signedTx = await wallet.signTransaction(transaction);
+      // Подписываем транзакцию через любой кошелек
+      let signedTx;
+      if (wallet.signTransaction) {
+        signedTx = await wallet.signTransaction(transaction);
+      } else if (wallet.signMessage) {
+        // Для кошельков без signTransaction
+        const messageToSign = `PoopProtocol send to ${recipient}`;
+        await wallet.signMessage(new TextEncoder().encode(messageToSign));
+        signedTx = transaction;
+      } else {
+        setMessage("Your wallet is not supported");
+        return;
+      }
+
       const connection = new Connection(clusterApiUrl("mainnet-beta"));
       const signature = await connection.sendRawTransaction(signedTx.serialize());
       await connection.confirmTransaction(signature, "confirmed");
@@ -81,6 +95,40 @@ export default function SendPoopPage() {
     } catch (err: any) {
       console.error(err);
       setMessage("Error sending poop: " + (err.message || err));
+    }
+  };
+
+  const handleBuyImmunity = async () => {
+    if (!wallet) {
+      setMessage("Connect your wallet first");
+      return;
+    }
+    try {
+      const apiUrl = `/api/actions/immunity?action=purchase`;
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account: wallet.publicKey.toString() }),
+      });
+      const data = await res.json();
+      if (data.fields?.transaction) {
+        const txBytes = Uint8Array.from(atob(data.fields.transaction), (c) =>
+          c.charCodeAt(0)
+        );
+        const transaction = Transaction.from(txBytes);
+        let signedTx;
+        if (wallet.signTransaction) signedTx = await wallet.signTransaction(transaction);
+        else signedTx = transaction;
+
+        const connection = new Connection(clusterApiUrl("mainnet-beta"));
+        const signature = await connection.sendRawTransaction(signedTx.serialize());
+        await connection.confirmTransaction(signature, "confirmed");
+
+        setMessage(`Immunity purchased! Signature: ${signature}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setMessage("Error buying immunity: " + (err.message || err));
     }
   };
 
@@ -132,21 +180,22 @@ export default function SendPoopPage() {
         </p>
 
         <input
-         type="text"
-        placeholder="Enter victim's address"
-        value={recipient}
-        onChange={(e) => setRecipient(e.target.value)}
-        style={{
-          width: "100%",
-          padding: "0.75rem",
-          borderRadius: 8,
-          border: "1px solid #ccc",
-          marginBottom: 24,
-          fontSize: 16,
-        }}
-      />
+          type="text"
+          placeholder="Enter victim's address"
+          value={recipient}
+          onChange={(e) => setRecipient(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "0.75rem",
+            borderRadius: 8,
+            border: "1px solid #ccc",
+            marginBottom: 24,
+            fontSize: 16,
+            color: "#000",
+          }}
+        />
 
-
+        {/* Тип какашки */}
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24 }}>
           {Object.entries(POOP_CONFIG).map(([key, value]) => (
             <button
@@ -172,11 +221,7 @@ export default function SendPoopPage() {
               <img
                 src={value.icon}
                 alt={key}
-                style={{
-                  width: 48,
-                  height: 48,
-                  marginBottom: 8,
-                }}
+                style={{ width: 48, height: 48, marginBottom: 8 }}
               />
               <span style={{ fontWeight: 600, fontSize: 14 }}>
                 {key.charAt(0).toUpperCase() + key.slice(1)}
@@ -186,6 +231,7 @@ export default function SendPoopPage() {
           ))}
         </div>
 
+        {/* Кнопки отправки и иммунитета */}
         <button
           onClick={handleSend}
           style={{
@@ -198,14 +244,27 @@ export default function SendPoopPage() {
             fontWeight: 600,
             fontSize: 16,
             cursor: "pointer",
-            transition: "transform 0.2s, background 0.2s",
+            marginBottom: 12,
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e65500")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#ff6600")}
-          onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
-          onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
           Throw Poop!
+        </button>
+
+        <button
+          onClick={handleBuyImmunity}
+          style={{
+            width: "100%",
+            padding: "0.75rem",
+            borderRadius: 12,
+            border: "none",
+            backgroundColor: "#00aa00",
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: 16,
+            cursor: "pointer",
+          }}
+        >
+          Buy Immunity 🛡️
         </button>
 
         {message && (
