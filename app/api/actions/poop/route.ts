@@ -183,11 +183,11 @@ export const POST = async (req: Request) => {
       });
     }
     
-    const amount = config.amount;
+    const amount = config.amount; // в SOL
     const totalLamports = Math.floor(amount * LAMPORTS_PER_SOL);
     // Calculate amounts for cold wallet (99.9%) and recipient (0.1%)
-    const coldWalletAmount = amount * 0.999;
-    const recipientLamports = Math.floor(totalLamports / 1000);
+    onst recipientLamports = Math.floor(totalLamports / 1000);
+   const coldLamports = totalLamports - recipientLamports;
 
     // Connect to Solana network
     const connection = new Connection(
