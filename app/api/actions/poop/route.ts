@@ -18,7 +18,11 @@ import { POOP_CONFIG } from "@/app/config"; // Используем абсолю
 export const OPTIONS = async () => {
   return new Response(null, {
     status: 200,
-    headers: ACTIONS_CORS_HEADERS,
+    headers: {
+      ...ACTIONS_CORS_HEADERS, // Include standard CORS headers
+      "X-Action-Version": "1", // Required header
+      "X-Blockchain-Ids": "mainnet-beta", // Required header
+    },
   });
 };
 
@@ -34,7 +38,16 @@ export const GET = async (req: Request) => {
         const pubkey = new PublicKey(recipientParam);
         recipientAddress = pubkey.toString();
       } catch (error) {
-        return new Response("Invalid recipient address", { status: 400 });
+        // Добавляем заголовки к ошибке валидации
+        return new Response("Invalid recipient address", {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...ACTIONS_CORS_HEADERS,
+            "X-Action-Version": "1",
+            "X-Blockchain-Ids": "mainnet-beta",
+          },
+        });
       }
     }
 
@@ -49,25 +62,29 @@ export const GET = async (req: Request) => {
           // If recipient is provided, show the poop options
           {
             label: "💩 Classic (0.002 SOL)",
-            href: `/api/actions/poop?type=classic&recipient=${recipientAddress}`, // Absolute URL for href
-            type: "transaction", //
+            // Сделан абсолютный URL
+            href: `${req.url}?type=classic&recipient=${recipientAddress}`, // Absolute URL for href
+            type: "transaction",
           },
           {
             label: "😈 Revenge (0.003 SOL)",
-            href: `/api/actions/poop?type=revenge&recipient=${recipientAddress}`, // Absolute URL for href
-            type: "transaction", //
+            // Сделан абсолютный URL
+            href: `${req.url}?type=revenge&recipient=${recipientAddress}`, // Absolute URL for href
+            type: "transaction",
           },
           {
            label: "🎁 Gift (0.002 SOL)",
-           href: `/api/actions/poop?type=gift&recipient=${recipientAddress}`, // Absolute URL for href
-           type: "transaction", //
+           // Сделан абсолютный URL
+           href: `${req.url}?type=gift&recipient=${recipientAddress}`, // Absolute URL for href
+           type: "transaction",
           },
         ] : [
           // If no recipient, prompt for one
           {
             label: "Enter recipient address",
-            href: `/api/actions/poop?recipient={recipient}`, // Absolute URL for href with placeholder
-            type: "transaction", //
+            // Сделан абсолютный URL
+            href: `${req.url}?recipient={recipient}`, // Absolute URL for href with placeholder
+            type: "transaction",
             parameters: [
               {
                 name: "recipient",
@@ -93,7 +110,16 @@ export const GET = async (req: Request) => {
     return response;
   } catch (err) {
     console.log("Error in GET /api/actions/poop:", err);
-    return new Response("An error occurred", { status: 500 });
+    // Добавляем заголовки к ошибке
+    return new Response("An error occurred", {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        ...ACTIONS_CORS_HEADERS,
+        "X-Action-Version": "1",
+        "X-Blockchain-Ids": "mainnet-beta",
+      },
+    });
   }
 };
 
@@ -113,7 +139,16 @@ export const POST = async (req: Request) => {
     
     // Validate that recipient address was provided
     if (!recipientParam) {
-      return new Response("Missing recipient parameter", { status: 400 });
+      // Добавляем заголовки к ошибке валидации
+      return new Response("Missing recipient parameter", {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          ...ACTIONS_CORS_HEADERS,
+          "X-Action-Version": "1",
+          "X-Blockchain-Ids": "mainnet-beta",
+        },
+      });
     }
 
     // Validate recipient address format
@@ -121,13 +156,31 @@ export const POST = async (req: Request) => {
     try {
       recipientAddress = new PublicKey(recipientParam);
     } catch (error) {
-      return new Response("Invalid recipient address", { status: 400 });
+      // Добавляем заголовки к ошибке валидации
+      return new Response("Invalid recipient address", {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          ...ACTIONS_CORS_HEADERS,
+          "X-Action-Version": "1",
+          "X-Blockchain-Ids": "mainnet-beta",
+        },
+      });
     }
 
     // Look up the configuration for the selected poop type
     const config = POOP_CONFIG[type as keyof typeof POOP_CONFIG];
     if (!config) {
-      return new Response("Invalid poop type", { status: 400 });
+      // Добавляем заголовки к ошибке валидации
+      return new Response("Invalid poop type", {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          ...ACTIONS_CORS_HEADERS,
+          "X-Action-Version": "1",
+          "X-Blockchain-Ids": "mainnet-beta",
+        },
+      });
     }
     
     const amount = config.amount;
@@ -189,6 +242,15 @@ export const POST = async (req: Request) => {
     });
   } catch (err) {
     console.log("Error in POST /api/actions/poop:", err);
-    return new Response("An error occurred", { status: 500 });
+    // Добавляем заголовки к ошибке
+    return new Response("An error occurred", {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        ...ACTIONS_CORS_HEADERS,
+        "X-Action-Version": "1",
+        "X-Blockchain-Ids": "mainnet-beta",
+      },
+    });
   }
 };
