@@ -13,7 +13,6 @@ import {
   Transaction 
 } from "@solana/web3.js";
 import { POOP_CONFIG } from "@/app/config"; // Используем абсолютный путь через @
-import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 // OPTIONS request handler for CORS
 export const OPTIONS = async () => {
