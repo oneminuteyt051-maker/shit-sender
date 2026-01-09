@@ -12,7 +12,7 @@ import {
   SystemProgram, 
   Transaction 
 } from "@solana/web3.js";
-import { POOP_CONFIG } from "../../../config";
+import { POOP_CONFIG } from "/app/config";
 
 // OPTIONS request handler for CORS
 export const OPTIONS = async () => {
