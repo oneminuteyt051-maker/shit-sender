@@ -49,7 +49,7 @@ export default function SendPoopPage() {
     }
   };
 
-  // --- ЛОГИКА ОТПРАВКИ (Client-Side) ---
+  // --- ЛОГИКА ОТПРАВКИ (Платит User) ---
   const handleSend = useCallback(async () => {
     if (!publicKey) {
       setMessage("Please connect your wallet!");
@@ -66,7 +66,7 @@ export default function SendPoopPage() {
     try {
       setMessage("Preparing transaction...");
 
-      // 1. Валидация адреса жертвы
+      // 1. Валидация адреса
       let recipientPubkey: PublicKey;
       try {
         recipientPubkey = new PublicKey(recipient);
@@ -75,16 +75,14 @@ export default function SendPoopPage() {
         return;
       }
 
-      // 2. Расчет сумм
+      // 2. Математика
       const totalAmount = POOP_CONFIG[type].amount;
-      // Пыль жертве (например, 0.000001 SOL, чтобы транзакция прошла как перевод)
-      const dustAmount = 0.000001; 
-      // Остальное тебе (Прибыль)
-      const profitAmount = totalAmount - dustAmount;
+      const dustAmount = 0.000001; // Пыль, чтобы транзакция отобразилась у жертвы
+      const profitAmount = totalAmount - dustAmount; // Твой доход
 
       const transaction = new Transaction();
 
-      // Инструкция 1: Перевод прибыли ТЕБЕ (Treasury)
+      // Инструкция 1: Доход ТЕБЕ
       transaction.add(
         SystemProgram.transfer({
           fromPubkey: publicKey,
@@ -93,7 +91,7 @@ export default function SendPoopPage() {
         })
       );
 
-      // Инструкция 2: Перевод пыли ЖЕРТВЕ
+      // Инструкция 2: Пыль ЖЕРТВЕ
       transaction.add(
         SystemProgram.transfer({
           fromPubkey: publicKey,
@@ -102,8 +100,7 @@ export default function SendPoopPage() {
         })
       );
 
-      // Инструкция 3: Memo (Текст какашки)
-      // Memo Program ID: MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr
+      // Инструкция 3: Memo (Собственно "Письмо")
       const memoText = `${POOP_CONFIG[type].memo} (via Poop Protocol)`;
       transaction.add(
         new TransactionInstruction({
@@ -115,23 +112,19 @@ export default function SendPoopPage() {
 
       setMessage("Please approve transaction in your wallet...");
 
-      // 3. Отправка транзакции (Пользователь платит газ)
-      // skipPreflight: false гарантирует проверку симуляции перед отправкой
+      // 3. Отправка
       const signature = await sendTransaction(transaction, connection, { skipPreflight: false });
 
       setMessage("Confirming transaction...");
-      
-      // Ждем подтверждения блока
       await connection.confirmTransaction(signature, "confirmed");
 
-      // Успех!
+      // Успех
       triggerAnimation();
       setTxSignature(signature);
       setMessage("Success! Poop thrown! 💩");
 
     } catch (err: any) {
       console.error(err);
-      // Обработка отказа пользователя
       if (err.message?.includes("User rejected")) {
         setMessage("Transaction rejected by user");
       } else {
@@ -140,12 +133,14 @@ export default function SendPoopPage() {
     }
   }, [publicKey, recipient, type, connection, sendTransaction]);
 
-  // --- ШАРИНГ ---
+  // --- ШАРИНГ (ENGLISH) ---
   const getShareText = () => {
     const shortRec = recipient.slice(0, 4) + "..." + recipient.slice(-4);
     return `I just sent a ${type} poop 💩 to ${shortRec} via Poop Protocol! Send yours here:`;
   };
+
   const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://shit-sender.vercel.app';
+  
   const twitterLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(getShareText())}&url=${encodeURIComponent(shareUrl)}`;
   const telegramLink = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(getShareText())}`;
 
@@ -153,10 +148,13 @@ export default function SendPoopPage() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 font-comic bg-cover bg-center relative overflow-hidden"
          style={{ backgroundImage: "url('/poop-cover.png')" }}>
       
+      {/* Затемнение фона */}
       <div className="absolute inset-0 bg-white/80" />
 
+      {/* Карточка */}
       <div className="relative w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl p-6 shadow-2xl text-center z-10 border border-gray-100">
         
+        {/* Header + Custom Connect Button */}
         <div className="flex flex-col items-center mb-6">
            <h1 className="text-3xl font-extrabold mb-2 text-gray-900 tracking-tight">💩 Poop Protocol</h1>
            <p className="text-gray-500 text-sm mb-4">The #1 Crypto Prank Service</p>
@@ -174,6 +172,7 @@ export default function SendPoopPage() {
            </div>
         </div>
 
+        {/* Input */}
         <div className="text-left mb-2 ml-1">
             <label className="text-xs font-bold text-gray-400 uppercase">Victim's Address</label>
         </div>
@@ -185,6 +184,7 @@ export default function SendPoopPage() {
           className="w-full p-4 rounded-xl border-2 border-gray-200 focus:border-orange-400 outline-none mb-6 text-black bg-gray-50 font-mono text-sm transition-all"
         />
 
+        {/* Type Selector */}
         <div className="flex gap-3 mb-6">
           {Object.entries(POOP_CONFIG).map(([key, value]) => (
             <button
@@ -196,13 +196,16 @@ export default function SendPoopPage() {
                 : "border-gray-100 bg-white hover:bg-gray-50"
               }`}
             >
-              <div className="text-3xl mb-2 filter drop-shadow-sm">{key === 'classic' ? '💩' : key === 'revenge' ? '👿' : '🎁'}</div>
+              <div className="text-3xl mb-2 filter drop-shadow-sm">
+                {key === 'classic' ? '💩' : key === 'revenge' ? '👿' : '🎁'}
+              </div>
               <span className="font-bold text-xs uppercase text-gray-800 tracking-wide">{key}</span>
               <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full mt-1">{value.amount} SOL</span>
             </button>
           ))}
         </div>
 
+        {/* Action Button */}
         <button
           onClick={handleSend}
           disabled={!connected}
@@ -215,12 +218,14 @@ export default function SendPoopPage() {
           {connected ? "THROW POOP! 🚀" : "Connect Wallet to Start"}
         </button>
 
+        {/* Status Message */}
         {message && (
           <div className={`mt-4 p-3 rounded-lg text-sm font-bold animate-pulse ${message.includes("Error") || message.includes("rejected") ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`}>
             {message}
           </div>
         )}
 
+        {/* Social Share Block (Hidden until success) */}
         {txSignature && (
             <div className="mt-6 pt-6 border-t border-gray-100 animate-fade-in-up">
                 <p className="text-sm font-bold text-gray-600 mb-3">Tell the world! 👇</p>
@@ -242,6 +247,7 @@ export default function SendPoopPage() {
 
       </div>
 
+      {/* Flying Poops Animation */}
       {poops.map((poop) => (
         <img
           key={poop.id}
