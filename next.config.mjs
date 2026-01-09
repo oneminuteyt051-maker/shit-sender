@@ -3,6 +3,7 @@ const nextConfig = {
     async headers() {
         return [
             {
+                // Применяем CORS ко всем API Actions
                 source: "/api/actions/:path*",
                 headers: [
                     { key: "Access-Control-Allow-Origin", value: "*" },
@@ -14,4 +15,5 @@ const nextConfig = {
         ];
     },
 };
+
 export default nextConfig;
