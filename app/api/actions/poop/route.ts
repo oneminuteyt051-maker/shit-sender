@@ -12,11 +12,9 @@ import {
   SystemProgram, 
   Transaction 
 } from "@solana/web3.js";
-import { POOP_CONFIG } from "@/app/config"; // Используем абсолютный путь через @
+import { POOP_CONFIG } from "@/app/config";
 
-// Укажи сюда адрес cold wallet
-const coldWallet = new PublicKey(process.env.COLD_WALLET_PUBKEY || "");
-
+// OPTIONS handler
 export const OPTIONS = async () => {
   return new Response(null, {
     status: 200,
@@ -36,9 +34,8 @@ export const GET = async (req: Request) => {
     let recipientAddress = "";
     if (recipientParam) {
       try {
-        const pubkey = new PublicKey(recipientParam);
-        recipientAddress = pubkey.toString();
-      } catch (error) {
+        recipientAddress = new PublicKey(recipientParam).toString();
+      } catch {
         return new Response("Invalid recipient address", {
           status: 400,
           headers: {
@@ -101,7 +98,7 @@ export const GET = async (req: Request) => {
       },
     });
   } catch (err) {
-    console.log("Error in GET /api/actions/poop:", err);
+    console.log("GET error:", err);
     return new Response("An error occurred", {
       status: 500,
       headers: {
@@ -138,7 +135,7 @@ export const POST = async (req: Request) => {
     let recipientAddress: PublicKey;
     try {
       recipientAddress = new PublicKey(recipientParam);
-    } catch (error) {
+    } catch {
       return new Response("Invalid recipient address", {
         status: 400,
         headers: {
@@ -162,6 +159,21 @@ export const POST = async (req: Request) => {
         },
       });
     }
+
+    const coldWalletPubkey = process.env.COLD_WALLET_PUBKEY;
+    if (!coldWalletPubkey) {
+      return new Response("Server misconfiguration: cold wallet missing", {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          ...ACTIONS_CORS_HEADERS,
+          "X-Action-Version": "1",
+          "X-Blockchain-Ids": "mainnet-beta",
+        },
+      });
+    }
+
+    const coldWallet = new PublicKey(coldWalletPubkey);
 
     const amount = config.amount;
     const totalLamports = Math.floor(amount * LAMPORTS_PER_SOL);
@@ -211,7 +223,7 @@ export const POST = async (req: Request) => {
       },
     });
   } catch (err) {
-    console.log("Error in POST /api/actions/poop:", err);
+    console.log("POST error:", err);
     return new Response("An error occurred", {
       status: 500,
       headers: {
