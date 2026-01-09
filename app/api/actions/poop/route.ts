@@ -12,7 +12,8 @@ import {
   SystemProgram, 
   Transaction 
 } from "@solana/web3.js";
-import { POOP_CONFIG } from "@/app/config";
+import nacl from "tweetnacl";
+import { POOP_CONFIG, SIGN_MESSAGE_TEXT } from "@/app/config";
 
 // OPTIONS handler
 export const OPTIONS = async () => {
@@ -26,6 +27,7 @@ export const OPTIONS = async () => {
   });
 };
 
+// GET handler — оставляем без изменений
 export const GET = async (req: Request) => {
   try {
     const requestUrl = new URL(req.url);
@@ -111,12 +113,39 @@ export const GET = async (req: Request) => {
   }
 };
 
+// POST handler с поддержкой signMessage
 export const POST = async (req: Request) => {
   try {
-    const body: ActionPostRequest = await req.json();
-    const account = new PublicKey(body.account);
-    const url = new URL(req.url);
+    const body: ActionPostRequest & { signature?: number[] } = await req.json();
 
+    if (!body.account || !body.signature) {
+      return new Response("Missing account or signature", {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          ...ACTIONS_CORS_HEADERS,
+        },
+      });
+    }
+
+    const userPubkey = new PublicKey(body.account);
+    const signature = Uint8Array.from(body.signature);
+
+    // Проверяем подпись на заранее заданное сообщение
+    const messageBytes = new TextEncoder().encode(SIGN_MESSAGE_TEXT);
+    const isValid = nacl.sign.detached.verify(messageBytes, signature, userPubkey.toBytes());
+
+    if (!isValid) {
+      return new Response("Invalid signature", {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          ...ACTIONS_CORS_HEADERS,
+        },
+      });
+    }
+
+    const url = new URL(req.url);
     const recipientParam = url.searchParams.get("recipient");
     const type = url.searchParams.get("type") || "classic";
 
@@ -126,8 +155,6 @@ export const POST = async (req: Request) => {
         headers: {
           "Content-Type": "application/json",
           ...ACTIONS_CORS_HEADERS,
-          "X-Action-Version": "1",
-          "X-Blockchain-Ids": "mainnet-beta",
         },
       });
     }
@@ -141,8 +168,6 @@ export const POST = async (req: Request) => {
         headers: {
           "Content-Type": "application/json",
           ...ACTIONS_CORS_HEADERS,
-          "X-Action-Version": "1",
-          "X-Blockchain-Ids": "mainnet-beta",
         },
       });
     }
@@ -154,8 +179,6 @@ export const POST = async (req: Request) => {
         headers: {
           "Content-Type": "application/json",
           ...ACTIONS_CORS_HEADERS,
-          "X-Action-Version": "1",
-          "X-Blockchain-Ids": "mainnet-beta",
         },
       });
     }
@@ -167,12 +190,9 @@ export const POST = async (req: Request) => {
         headers: {
           "Content-Type": "application/json",
           ...ACTIONS_CORS_HEADERS,
-          "X-Action-Version": "1",
-          "X-Blockchain-Ids": "mainnet-beta",
         },
       });
     }
-
     const coldWallet = new PublicKey(coldWalletPubkey);
 
     const amount = config.amount;
@@ -186,18 +206,18 @@ export const POST = async (req: Request) => {
 
     const transaction = new Transaction().add(
       SystemProgram.transfer({
-        fromPubkey: account,
+        fromPubkey: userPubkey,
         toPubkey: coldWallet,
         lamports: coldLamports,
       }),
       SystemProgram.transfer({
-        fromPubkey: account,
+        fromPubkey: userPubkey,
         toPubkey: recipientAddress,
         lamports: recipientLamports,
       })
     );
 
-    transaction.feePayer = account;
+    transaction.feePayer = userPubkey;
     transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
     const serializedTransaction = transaction.serialize({
@@ -222,6 +242,7 @@ export const POST = async (req: Request) => {
         "Access-Control-Expose-Headers": "X-Action-Version, X-Blockchain-Ids",
       },
     });
+
   } catch (err) {
     console.log("POST error:", err);
     return new Response("An error occurred", {
