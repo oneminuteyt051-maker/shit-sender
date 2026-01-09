@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       icon: `${url.origin}/poop-cover.png`,
       description: "Send a poop prank to a friend!",
       label: "Enter Address",
-=======
+
 import { 
   ActionGetResponse, 
   ActionPostRequest, 
@@ -62,19 +62,18 @@ export const GET = async (req: Request) => {
       icon: new URL("/poop-cover.png", req.url).toString(), // Absolute URL for icon
       description: "Send a poop prank to someone on Solana!",
       label: "Poop",
->>>>>>> temp-fixes
+temp-fixes
       links: {
         actions: recipientAddress ? [
           // If recipient is provided, show the poop options
           {
-<<<<<<< HEAD
             label: "Send Poop",
             href: `${baseHref}?recipient={recipient}`,
             parameters: [
               {
                 name: "recipient",
                 label: "Enter recipient's address",
-=======
+
             label: "💩 Classic (0.002 SOL)",
             href: `${req.url}?type=classic&recipient=${recipientAddress}`, // Absolute URL for href
           },
@@ -96,14 +95,14 @@ export const GET = async (req: Request) => {
                 name: "recipient",
                 label: "Recipient address",
                 required: true,
->>>>>>> temp-fixes
+   temp-fixes
               },
             ],
           },
         ],
       },
     };
-<<<<<<< HEAD
+
 
     return Response.json(payload);
   }
@@ -207,7 +206,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Error in POST /api/actions/poop:", err);
     return new Response("Internal Server Error", { status: 500 });
-=======
 
     // Create response with correct headers for Solana Actions
     const response = new Response(JSON.stringify(payload), {
@@ -223,7 +221,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.log("Error in GET /api/actions/poop:", err);
     return new Response("An error occurred", { status: 500 });
->>>>>>> temp-fixes
+ temp-fixes
   }
 };
 
