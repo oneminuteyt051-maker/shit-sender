@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import AppWalletProvider from "./providers"; // Импорт провайдера
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,21 +13,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// ОБНОВЛЕННЫЕ МЕТАДАННЫЕ
 export const metadata: Metadata = {
   title: "Poop Protocol | Solana Blinks",
-  description: "The premier crypto-prank service on Solana. Send poop, get immunity, enjoy the vibes.",
-  openGraph: {
-    title: "Poop Protocol",
-    description: "Send your friends a crypto-poop via Solana Blinks.",
-    images: ["/poop-cover.png"],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Poop Protocol",
-    description: "Send your friends a crypto-poop via Solana Blinks.",
-    images: ["/poop-cover.png"],
-  },
+  description: "The premier crypto-prank service on Solana.",
   other: {
     "solana:action": "https://shit-sender.vercel.app/api/actions/poop"
   }
@@ -39,10 +28,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black`}
-      >
-        {children}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}>
+        <AppWalletProvider>
+          {children}
+        </AppWalletProvider>
       </body>
     </html>
   );
