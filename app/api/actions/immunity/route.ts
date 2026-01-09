@@ -117,10 +117,11 @@ export const POST = async (req: Request) => {
     // Return the response with correct headers
     return new Response(JSON.stringify(payload), {
       headers: {
+        ...ACTIONS_CORS_HEADERS,
         "Content-Type": "application/json",
-        ...ACTIONS_CORS_HEADERS, // Include standard CORS headers
         "X-Action-Version": "1", // Required header
         "X-Blockchain-Ids": "mainnet-beta", // Required header
+        "Access-Control-Expose-Headers": "X-Action-Version, X-Blockchain-Ids",
       },
     });
   } catch (err) {
