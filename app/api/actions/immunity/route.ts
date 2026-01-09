@@ -17,7 +17,11 @@ import {
 export const OPTIONS = async () => {
   return new Response(null, {
     status: 200,
-    headers: ACTIONS_CORS_HEADERS,
+    headers: {
+      ...ACTIONS_CORS_HEADERS, // Include standard CORS headers
+      "X-Action-Version": "1", // Required header
+      "X-Blockchain-Ids": "mainnet-beta", // Required header
+    },
   });
 };
 
@@ -55,7 +59,16 @@ export const GET = async (req: Request) => {
     return response;
   } catch (err) {
     console.log("Error in GET /api/actions/immunity:", err);
-    return new Response("An error occurred", { status: 500 });
+    // Добавляем заголовки к ошибке
+    return new Response("An error occurred", {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        ...ACTIONS_CORS_HEADERS,
+        "X-Action-Version": "1",
+        "X-Blockchain-Ids": "mainnet-beta",
+      },
+    });
   }
 };
 
@@ -74,7 +87,16 @@ export const POST = async (req: Request) => {
 
     // Validate that the action is 'purchase'
     if (action !== "purchase") {
-      return new Response("Invalid action", { status: 400 });
+      // Добавляем заголовки к ошибке валидации
+      return new Response("Invalid action", {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          ...ACTIONS_CORS_HEADERS,
+          "X-Action-Version": "1",
+          "X-Blockchain-Ids": "mainnet-beta",
+        },
+      });
     }
 
     // Fixed amount for immunity purchase
@@ -127,6 +149,15 @@ export const POST = async (req: Request) => {
     });
   } catch (err) {
     console.log("Error in POST /api/actions/immunity:", err);
-    return new Response("An error occurred", { status: 500 });
+    // Добавляем заголовки к ошибке
+    return new Response("An error occurred", {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        ...ACTIONS_CORS_HEADERS,
+        "X-Action-Version": "1",
+        "X-Blockchain-Ids": "mainnet-beta",
+      },
+    });
   }
 };
