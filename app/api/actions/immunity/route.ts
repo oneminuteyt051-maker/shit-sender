@@ -36,6 +36,7 @@ export const GET = async (req: Request) => {
           {
             label: "🛡️ Get Immunity (0.006 SOL)",
             href: `${req.url}?action=purchase`, // Absolute URL for href
+            type: "transaction",
           },
         ],
       },
