@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server"; 
+import { NextRequest, NextResponse } from "next/server";
 import {
   clusterApiUrl,
   Connection,
@@ -12,9 +12,9 @@ import {
 } from "@solana/web3.js";
 import { serialize } from "borsh";
 import nacl from "tweetnacl";
-import { SIGN_MESSAGE_TEXT } from "@/app/config";
+import { SIGN_MESSAGE_TEXT, POOP_CONFIG } from "@/app/config";
 
-// Define the structure for the Memo instruction data according to SPL Memo spec
+// --- MEMO SCHEMA (Borsh) ---
 class MemoSchema {
   instruction: number; // Instruction index (0 for Memo)
   memo: string; // The memo text
@@ -40,35 +40,38 @@ const MEMO_SCHEMA = new Map([
 
 export async function POST(request: NextRequest) {
   try {
-    const { userPubkey, recipientPubkey, amount, signature } = await request.json();
+    const body = await request.json();
+    const { userPubkey, recipientPubkey, amount, signature, poopType } = body;
 
+    // 1. ВАЛИДАЦИЯ ВХОДНЫХ ДАННЫХ
     if (!userPubkey || !recipientPubkey || !amount || !signature) {
-      return new Response(
-        JSON.stringify({ error: "Missing required parameters" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+      return NextResponse.json(
+        { error: "Missing required parameters" },
+        { status: 400 }
       );
     }
 
-    // Проверка подписи signMessage
-    const userPub = new PublicKey(userPubkey);
-    const sigBytes = Uint8Array.from(signature);
-    const messageBytes = new TextEncoder().encode(SIGN_MESSAGE_TEXT);
+    // 2. ПРОВЕРКА ПОДПИСИ (Security)
+    try {
+        const userPub = new PublicKey(userPubkey);
+        // Важно: signature приходит как массив чисел [12, 244, ...], превращаем в Uint8Array
+        const sigBytes = new Uint8Array(signature);
+        const messageBytes = new TextEncoder().encode(SIGN_MESSAGE_TEXT);
 
-    const isValid = nacl.sign.detached.verify(messageBytes, sigBytes, userPub.toBytes());
-    if (!isValid) {
-      return new Response(
-        JSON.stringify({ error: "Invalid signature" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+        const isValid = nacl.sign.detached.verify(messageBytes, sigBytes, userPub.toBytes());
+        
+        if (!isValid) {
+            return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+        }
+    } catch (e) {
+        return NextResponse.json({ error: "Signature verification failed" }, { status: 400 });
     }
 
+    // 3. ПОДГОТОВКА HOT WALLET
     const hotWalletPrivateKeyString = process.env.HOT_WALLET_PRIVATE_KEY;
     if (!hotWalletPrivateKeyString) {
-      console.error("HOT_WALLET_PRIVATE_KEY is not set in environment variables.");
-      return new Response(
-        JSON.stringify({ error: "Server configuration error" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
+      console.error("HOT_WALLET_PRIVATE_KEY missing");
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
     const privateKeyArray = Uint8Array.from(JSON.parse(hotWalletPrivateKeyString));
@@ -79,12 +82,13 @@ export async function POST(request: NextRequest) {
       "confirmed"
     );
 
+    // 4. СБОРКА ТРАНЗАКЦИИ
     const transaction = new Transaction();
 
-    // "Dust" amount в lamports
-    const dustAmount = Math.round(amount * LAMPORTS_PER_SOL * 0.000001); // tiny fraction
+    // "Dust" amount (пыль)
+    const dustAmount = Math.round(amount * LAMPORTS_PER_SOL * 0.000001) || 1000;
 
-    // Добавляем перевод "пустышки"
+    // Перевод пыли от Hot Wallet к Жертве
     transaction.add(
       SystemProgram.transfer({
         fromPubkey: hotWalletKeypair.publicKey,
@@ -93,9 +97,12 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    // Memo с упоминанием отправителя
-    const memoText = `💩 You got a poop prank from ${userPubkey}!`;
-    const memoData = new MemoSchema({ instruction: 0, memo: memoText });
+    // Формирование Memo
+    // Берем текст из конфига или дефолтный
+    const configMemo = POOP_CONFIG[poopType as keyof typeof POOP_CONFIG]?.memo || "💩 You got a poop prank!";
+    const fullMemo = `${configMemo} (from: ${userPubkey.slice(0, 6)}...${userPubkey.slice(-4)})`;
+
+    const memoData = new MemoSchema({ instruction: 0, memo: fullMemo });
     const serializedMemoData = serialize(MEMO_SCHEMA, memoData);
 
     const memoInstruction = new TransactionInstruction({
@@ -106,26 +113,28 @@ export async function POST(request: NextRequest) {
 
     transaction.add(memoInstruction);
 
+    // 5. ОТПРАВКА
     transaction.feePayer = hotWalletKeypair.publicKey;
     const { blockhash } = await connection.getLatestBlockhash("confirmed");
     transaction.recentBlockhash = blockhash;
 
+    // Подписываем серверным кошельком (он платит комиссию)
     transaction.sign(hotWalletKeypair);
 
     const signatureTx = await sendAndConfirmTransaction(connection, transaction, [
       hotWalletKeypair,
     ]);
 
-    return new Response(
-      JSON.stringify({ transactionId: signatureTx }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+    return NextResponse.json(
+      { transactionId: signatureTx, success: true },
+      { status: 200 }
     );
 
-  } catch (err) {
-    console.error("Error in POST /api/process-poop:", err);
-    return new Response(
-      JSON.stringify({ error: "An internal server error occurred" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+  } catch (err: any) {
+    console.error("Error in process-poop:", err);
+    return NextResponse.json(
+      { error: "Internal server error: " + err.message },
+      { status: 500 }
     );
   }
 }
