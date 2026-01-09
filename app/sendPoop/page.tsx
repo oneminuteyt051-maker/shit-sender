@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Connection,
-  clusterApiUrl,
-  PublicKey,
-  Transaction,
-  SystemProgram,
-} from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { POOP_CONFIG } from "@/app/config";
 
 type FlyingPoop = {
@@ -26,6 +20,8 @@ export default function SendPoopPage() {
   const [poopId, setPoopId] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
 
+  const SIGN_MESSAGE_TEXT = "I approve sending a Poop via Poop Protocol";
+
   useEffect(() => {
     setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
   }, []);
@@ -42,26 +38,36 @@ export default function SendPoopPage() {
       const actionUrl = `${window.location.origin}/api/actions/poop?type=${type}&recipient=${recipient}`;
 
       if (isMobile) {
-        // Mobile deeplink
-        const phantomLink = `https://phantom.app/ul/v1/action?ref=${encodeURIComponent(actionUrl)}`;
+        // Авто-отправка через deeplink для мобильных кошельков
+        const phantomLink = `https://phantom.app/ul/v1/action?ref=${encodeURIComponent(
+          actionUrl
+        )}&signMessage=${encodeURIComponent(SIGN_MESSAGE_TEXT)}`;
         setMessage("Redirecting to your wallet...");
         window.location.href = phantomLink;
         return;
       }
 
-      // Desktop: injected wallet
+      // Desktop: любой кошелек с signMessage
       const solana = (window as any).solana;
-      if (!solana || !solana.isPhantom) {
-        setMessage("Install Phantom Wallet to send poops");
+      if (!solana) {
+        setMessage("Install a Solana wallet to send poops");
         return;
       }
 
       await solana.connect();
 
+      // Подписываем сообщение
+      const encodedMessage = new TextEncoder().encode(SIGN_MESSAGE_TEXT);
+      const signedMessage = await solana.signMessage(encodedMessage, "utf8");
+
+      // Отправляем на сервер
       const res = await fetch(actionUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account: solana.publicKey.toString() }),
+        body: JSON.stringify({
+          account: solana.publicKey.toString(),
+          signature: Array.from(signedMessage.signature),
+        }),
       });
 
       const data = await res.json();
@@ -85,16 +91,7 @@ export default function SendPoopPage() {
         ]);
       }
 
-      const txBytes = Uint8Array.from(atob(data.fields.transaction), (c) =>
-        c.charCodeAt(0)
-      );
-      const transaction = Transaction.from(txBytes);
-      const signedTx = await solana.signTransaction(transaction);
-      const connection = new Connection(clusterApiUrl("mainnet-beta"));
-      const signature = await connection.sendRawTransaction(signedTx.serialize());
-      await connection.confirmTransaction(signature, "confirmed");
-
-      setMessage(`Transaction sent! Signature: ${signature}`);
+      setMessage("Poop request sent! Confirm transaction in your wallet.");
     } catch (err: any) {
       console.error(err);
       setMessage("Error sending poop: " + (err.message || err));
@@ -105,23 +102,32 @@ export default function SendPoopPage() {
     const actionUrl = `${window.location.origin}/api/actions/immunity`;
 
     if (isMobile) {
-      const phantomLink = `https://phantom.app/ul/v1/action?ref=${encodeURIComponent(actionUrl)}`;
+      const phantomLink = `https://phantom.app/ul/v1/action?ref=${encodeURIComponent(
+        actionUrl
+      )}&signMessage=${encodeURIComponent(SIGN_MESSAGE_TEXT)}`;
+      setMessage("Redirecting to your wallet...");
       window.location.href = phantomLink;
       return;
     }
 
     const solana = (window as any).solana;
-    if (!solana || !solana.isPhantom) {
-      setMessage("Install Phantom Wallet to buy immunity");
+    if (!solana) {
+      setMessage("Install a Solana wallet to buy immunity");
       return;
     }
 
     await solana.connect();
 
+    const encodedMessage = new TextEncoder().encode(SIGN_MESSAGE_TEXT);
+    const signedMessage = await solana.signMessage(encodedMessage, "utf8");
+
     const res = await fetch(actionUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ account: solana.publicKey.toString() }),
+      body: JSON.stringify({
+        account: solana.publicKey.toString(),
+        signature: Array.from(signedMessage.signature),
+      }),
     });
 
     const data = await res.json();
@@ -130,16 +136,7 @@ export default function SendPoopPage() {
       return;
     }
 
-    const txBytes = Uint8Array.from(atob(data.fields.transaction), (c) =>
-      c.charCodeAt(0)
-    );
-    const transaction = Transaction.from(txBytes);
-    const signedTx = await solana.signTransaction(transaction);
-    const connection = new Connection(clusterApiUrl("mainnet-beta"));
-    const signature = await connection.sendRawTransaction(signedTx.serialize());
-    await connection.confirmTransaction(signature, "confirmed");
-
-    setMessage(`Immunity purchased! Signature: ${signature}`);
+    setMessage("Immunity purchase request sent! Confirm transaction in your wallet.");
   };
 
   return (
@@ -222,7 +219,10 @@ export default function SendPoopPage() {
                 backgroundColor: "#fff",
                 cursor: "pointer",
                 transition: "transform 0.15s, box-shadow 0.15s",
-                boxShadow: type === key ? "0 4px 12px rgba(255,102,0,0.5)" : "0 2px 6px rgba(0,0,0,0.1)",
+                boxShadow:
+                  type === key
+                    ? "0 4px 12px rgba(255,102,0,0.5)"
+                    : "0 2px 6px rgba(0,0,0,0.1)",
               }}
               onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
               onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
@@ -286,7 +286,7 @@ export default function SendPoopPage() {
         </button>
 
         {message && (
-          <p style={{ marginTop: 16, color: message.includes("Transaction") ? "green" : "red" }}>
+          <p style={{ marginTop: 16, color: message.includes("Poop") ? "green" : "red" }}>
             {message}
           </p>
         )}
