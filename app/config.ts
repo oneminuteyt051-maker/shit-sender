@@ -1,15 +1,24 @@
-import { PublicKey } from "@solana/web3.js";
+// Configuration for Poop Protocol
+export const POOP_CONFIG = {
+  classic: {
+    amount: 0.002,
+    icon: "/poop-classic.png",
+    memo: "💩 You got a classic poop prank!"
+  },
+  revenge: {
+    amount: 0.003,
+    icon: "/poop-revenge.png",
+    memo: "💩 You got a revenge poop prank!"
+  },
+  gift: {
+    amount: 0.002,
+    icon: "/poop-gift.png",
+    memo: "💩 You got a gift poop prank!"
+  }
+} as const;
 
-// ХОЛОДНЫЙ КОШЕЛЕК — для получения основной части средств
-export const COLD_WALLET = new PublicKey("79H21m2P9ay6twFvxoe4REB6jJ6jJ5UHT4HisqkErg83");
+// Default recipient address if none is provided
+export const DEFAULT_RECIPIENT_ADDRESS = "Bg9fFUiD8wxYVJ6E46a6zqgpGykb5N7FbU2g2PGnQCQc";
 
-// Цены в SOL (новые)
-export const PRICES: Record<string, number> = {
-  classic: 0.002, // ~ $0.30
-  revenge: 0.003, // ~ $0.45
-  gift: 0.002,    // ~ $0.30
-  immunity: 0.006 // ~ $0.90
-};
-
-// Твой домен после деплоя (автоопределение)
-export const BASE_URL = process.env.NEXT_PUBLIC_HOST || "https://shit-sender.vercel.app";
+// Reward address for development
+export const REWARD_ADDRESS = "79H21m2P9ay6twFvxoe4REB6jJ6jJ5UHT4HisqkErg83";
