@@ -27,6 +27,9 @@ export const metadata: Metadata = {
     description: "Send your friends a crypto-poop via Solana Blinks.",
     images: ["/poop-cover.png"],
   },
+  other: {
+    "solana:action": "https://shit-sender.vercel.app/api/actions/poop"
+  }
 };
 
 export default function RootLayout({
