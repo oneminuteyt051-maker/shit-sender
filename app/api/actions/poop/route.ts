@@ -50,20 +50,24 @@ export const GET = async (req: Request) => {
           {
             label: "💩 Classic (0.002 SOL)",
             href: `/api/actions/poop?type=classic&recipient=${recipientAddress}`, // Absolute URL for href
+            type: "transaction", //
           },
           {
             label: "😈 Revenge (0.003 SOL)",
             href: `/api/actions/poop?type=revenge&recipient=${recipientAddress}`, // Absolute URL for href
+            type: "transaction", //
           },
           {
-            label: "🎁 Gift (0.002 SOL)",
+           label: "🎁 Gift (0.002 SOL)",
            href: `/api/actions/poop?type=gift&recipient=${recipientAddress}`, // Absolute URL for href
+           type: "transaction", //
           },
         ] : [
           // If no recipient, prompt for one
           {
             label: "Enter recipient address",
             href: `/api/actions/poop?recipient={recipient}`, // Absolute URL for href with placeholder
+            type: "transaction", //
             parameters: [
               {
                 name: "recipient",
