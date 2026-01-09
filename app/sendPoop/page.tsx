@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { PublicKey } from "@solana/web3.js";
-import { POOP_CONFIG } from "@/app/config";
+import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { POOP_CONFIG, SIGN_MESSAGE_TEXT } from "@/app/config";
 
+// Типы для анимации
 type FlyingPoop = {
   id: number;
   icon: string;
@@ -13,20 +15,39 @@ type FlyingPoop = {
 };
 
 export default function SendPoopPage() {
+  // HOOKS: Используем официальный хук вместо window.solana
+  const { publicKey, signMessage, connected } = useWallet();
+  
   const [recipient, setRecipient] = useState("");
   const [type, setType] = useState<keyof typeof POOP_CONFIG>("classic");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(""); // Используем message для статуса, как в оригинале
   const [poops, setPoops] = useState<FlyingPoop[]>([]);
   const [poopId, setPoopId] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
 
-  const SIGN_MESSAGE_TEXT = "I approve sending a Poop via Poop Protocol";
+  // --- ЛОГИКА АНИМАЦИИ (ОСТАВЛЕНА КАК БЫЛА) ---
+  const triggerAnimation = () => {
+    for (let i = 0; i < 5; i++) {
+      setPoopId((id) => id + 1);
+      setPoops((prev) => [
+        ...prev,
+        {
+          id: poopId + i,
+          icon: POOP_CONFIG[type].icon,
+          x: 50 + Math.random() * 80,
+          y: 90,
+          rotation: Math.random() * 360,
+        },
+      ]);
+    }
+  };
 
-  useEffect(() => {
-    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
-  }, []);
-
+  // --- ЛОГИКА ОТПРАВКИ POOP ---
   const handleSend = async () => {
+    if (!connected || !publicKey || !signMessage) {
+      setMessage("Please connect your wallet first!");
+      return;
+    }
+
     if (!recipient) {
       setMessage("Enter victim address first");
       return;
@@ -35,108 +56,75 @@ export default function SendPoopPage() {
     setMessage("");
 
     try {
-      const actionUrl = `${window.location.origin}/api/actions/poop?type=${type}&recipient=${recipient}`;
+      // 1. Подписываем сообщение (работает и на Mobile Phantom/Trust)
+      setMessage("Please sign the request in your wallet...");
+      const messageBytes = new TextEncoder().encode(SIGN_MESSAGE_TEXT);
+      const signature = await signMessage(messageBytes);
 
-      if (isMobile) {
-        // Авто-отправка через deeplink для мобильных кошельков
-        const phantomLink = `https://phantom.app/ul/v1/action?ref=${encodeURIComponent(
-          actionUrl
-        )}&signMessage=${encodeURIComponent(SIGN_MESSAGE_TEXT)}`;
-        setMessage("Redirecting to your wallet...");
-        window.location.href = phantomLink;
-        return;
-      }
-
-      // Desktop: любой кошелек с signMessage
-      const solana = (window as any).solana;
-      if (!solana) {
-        setMessage("Install a Solana wallet to send poops");
-        return;
-      }
-
-      await solana.connect();
-
-      // Подписываем сообщение
-      const encodedMessage = new TextEncoder().encode(SIGN_MESSAGE_TEXT);
-      const signedMessage = await solana.signMessage(encodedMessage, "utf8");
-
-      // Отправляем на сервер
-      const res = await fetch(actionUrl, {
+      // 2. Отправляем на сервер для Process-Poop (Hot Wallet)
+      setMessage("Sending request to server...");
+      
+      const response = await fetch("/api/process-poop", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          account: solana.publicKey.toString(),
-          signature: Array.from(signedMessage.signature),
+          userPubkey: publicKey.toBase58(),
+          recipientPubkey: recipient,
+          amount: POOP_CONFIG[type].amount,
+          signature: Array.from(signature), // Преобразуем Uint8Array в массив
+          poopType: type
         }),
       });
 
-      const data = await res.json();
-      if (!data || !data.fields?.transaction) {
-        setMessage("API did not return transaction");
-        return;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Server error");
       }
 
-      // 5 летящих какашек
-      for (let i = 0; i < 5; i++) {
-        setPoopId((id) => id + 1);
-        setPoops((prev) => [
-          ...prev,
-          {
-            id: poopId + i,
-            icon: POOP_CONFIG[type].icon,
-            x: 50 + Math.random() * 80,
-            y: 90,
-            rotation: Math.random() * 360,
-          },
-        ]);
-      }
+      // 3. Успех
+      triggerAnimation();
+      setMessage(`Poop sent! Tx: ${data.transactionId?.slice(0, 8)}...`);
 
-      setMessage("Poop request sent! Confirm transaction in your wallet.");
     } catch (err: any) {
       console.error(err);
-      setMessage("Error sending poop: " + (err.message || err));
+      setMessage("Error: " + (err.message || err));
     }
   };
 
+  // --- ЛОГИКА BUY IMMUNITY (Адаптирована под useWallet) ---
   const handleBuyImmunity = async () => {
-    const actionUrl = `${window.location.origin}/api/actions/immunity`;
-
-    if (isMobile) {
-      const phantomLink = `https://phantom.app/ul/v1/action?ref=${encodeURIComponent(
-        actionUrl
-      )}&signMessage=${encodeURIComponent(SIGN_MESSAGE_TEXT)}`;
-      setMessage("Redirecting to your wallet...");
-      window.location.href = phantomLink;
-      return;
+    if (!connected || !publicKey || !signMessage) {
+        setMessage("Connect wallet to buy immunity");
+        return;
     }
 
-    const solana = (window as any).solana;
-    if (!solana) {
-      setMessage("Install a Solana wallet to buy immunity");
-      return;
+    try {
+        setMessage("Sign immunity request...");
+        const messageBytes = new TextEncoder().encode(SIGN_MESSAGE_TEXT);
+        const signature = await signMessage(messageBytes);
+
+        // Здесь вызываем твой старый endpoint или новый process-immunity (если есть)
+        // Для примера оставим вызов старого, но с передачей подписи
+        const actionUrl = `/api/actions/immunity`;
+        
+        const res = await fetch(actionUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                account: publicKey.toBase58(),
+                signature: Array.from(signature),
+                // Дополнительные данные если нужны
+            }),
+        });
+        
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || "Failed");
+
+        setMessage("Immunity request sent! Check wallet.");
+    } catch (err: any) {
+        setMessage("Error buying immunity: " + err.message);
     }
-
-    await solana.connect();
-
-    const encodedMessage = new TextEncoder().encode(SIGN_MESSAGE_TEXT);
-    const signedMessage = await solana.signMessage(encodedMessage, "utf8");
-
-    const res = await fetch(actionUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        account: solana.publicKey.toString(),
-        signature: Array.from(signedMessage.signature),
-      }),
-    });
-
-    const data = await res.json();
-    if (!data || !data.fields?.transaction) {
-      setMessage("API did not return transaction for immunity");
-      return;
-    }
-
-    setMessage("Immunity purchase request sent! Confirm transaction in your wallet.");
   };
 
   return (
@@ -181,7 +169,12 @@ export default function SendPoopPage() {
           backgroundColor: "rgba(255,255,255,0.95)",
         }}
       >
-        <h1 style={{ marginBottom: 8 }}>💩 Poop Protocol</h1>
+        {/* Кнопка кошелька в правом верхнем углу или по центру */}
+        <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
+            <WalletMultiButton style={{ backgroundColor: '#1a1a1a', fontFamily: 'inherit' }} />
+        </div>
+
+        <h1 style={{ marginBottom: 8, fontSize: '2rem' }}>💩 Poop Protocol</h1>
         <p style={{ color: "#555", marginBottom: 24 }}>
           Send a prank SOL to someone on Solana!
         </p>
@@ -198,7 +191,7 @@ export default function SendPoopPage() {
             border: "1px solid #ccc",
             marginBottom: 24,
             fontSize: 16,
-            color: "#000", // черный текст
+            color: "#000",
           }}
         />
 
@@ -242,51 +235,53 @@ export default function SendPoopPage() {
 
         <button
           onClick={handleSend}
+          disabled={!connected}
           style={{
             width: "100%",
             padding: "0.75rem",
             borderRadius: 12,
             border: "none",
-            backgroundColor: "#ff6600",
+            backgroundColor: connected ? "#ff6600" : "#ccc",
             color: "#fff",
             fontWeight: 600,
             fontSize: 16,
-            cursor: "pointer",
+            cursor: connected ? "pointer" : "not-allowed",
             transition: "transform 0.2s, background 0.2s",
             marginBottom: 12,
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e65500")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#ff6600")}
-          onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
-          onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          onMouseEnter={(e) => { if(connected) e.currentTarget.style.backgroundColor = "#e65500" }}
+          onMouseLeave={(e) => { if(connected) e.currentTarget.style.backgroundColor = "#ff6600" }}
+          onMouseDown={(e) => { if(connected) e.currentTarget.style.transform = "scale(0.95)" }}
+          onMouseUp={(e) => { if(connected) e.currentTarget.style.transform = "scale(1)" }}
         >
-          Throw Poop!
+          {connected ? "Throw Poop!" : "Connect Wallet First"}
         </button>
 
         <button
           onClick={handleBuyImmunity}
+          disabled={!connected}
           style={{
             width: "100%",
             padding: "0.75rem",
             borderRadius: 12,
             border: "none",
-            backgroundColor: "#2b7a78",
+            backgroundColor: connected ? "#2b7a78" : "#ccc",
             color: "#fff",
             fontWeight: 600,
             fontSize: 16,
-            cursor: "pointer",
+            cursor: connected ? "pointer" : "not-allowed",
             transition: "transform 0.2s, background 0.2s",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#3aafa9")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#2b7a78")}
-          onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
-          onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          onMouseEnter={(e) => { if(connected) e.currentTarget.style.backgroundColor = "#3aafa9" }}
+          onMouseLeave={(e) => { if(connected) e.currentTarget.style.backgroundColor = "#2b7a78" }}
+          onMouseDown={(e) => { if(connected) e.currentTarget.style.transform = "scale(0.95)" }}
+          onMouseUp={(e) => { if(connected) e.currentTarget.style.transform = "scale(1)" }}
         >
           Buy Immunity 🛡️
         </button>
 
         {message && (
-          <p style={{ marginTop: 16, color: message.includes("Poop") ? "green" : "red" }}>
+          <p style={{ marginTop: 16, color: message.toLowerCase().includes("error") ? "red" : "green", fontWeight: "bold" }}>
             {message}
           </p>
         )}
@@ -297,6 +292,7 @@ export default function SendPoopPage() {
         <img
           key={poop.id}
           src={poop.icon}
+          alt="flying poop"
           style={{
             position: "absolute",
             width: 32,
