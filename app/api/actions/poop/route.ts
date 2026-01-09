@@ -49,21 +49,21 @@ export const GET = async (req: Request) => {
           // If recipient is provided, show the poop options
           {
             label: "💩 Classic (0.002 SOL)",
-            href: `${req.url}?type=classic&recipient=${recipientAddress}`, // Absolute URL for href
+            href: `/api/actions/poop?type=classic&recipient=${recipientAddress}`, // Absolute URL for href
           },
           {
             label: "😈 Revenge (0.003 SOL)",
-            href: `${req.url}?type=revenge&recipient=${recipientAddress}`, // Absolute URL for href
+            href: `/api/actions/poop?type=revenge&recipient=${recipientAddress}`, // Absolute URL for href
           },
           {
             label: "🎁 Gift (0.002 SOL)",
-            href: `${req.url}?type=gift&recipient=${recipientAddress}`, // Absolute URL for href
+           href: `/api/actions/poop?type=gift&recipient=${recipientAddress}`, // Absolute URL for href
           },
         ] : [
           // If no recipient, prompt for one
           {
             label: "Enter recipient address",
-            href: `${req.url}?recipient={recipient}`, // Absolute URL for href with placeholder
+            href: `/api/actions/poop?recipient={recipient}`, // Absolute URL for href with placeholder
             parameters: [
               {
                 name: "recipient",
@@ -176,10 +176,11 @@ export const POST = async (req: Request) => {
     // Return the response with correct headers
     return new Response(JSON.stringify(payload), {
       headers: {
+        ...ACTIONS_CORS_HEADERS,
         "Content-Type": "application/json",
-        ...ACTIONS_CORS_HEADERS, // Include standard CORS headers
         "X-Action-Version": "1", // Required header
         "X-Blockchain-Ids": "mainnet-beta", // Required header
+        "Access-Control-Expose-Headers": "X-Action-Version, X-Blockchain-Ids",
       },
     });
   } catch (err) {
