@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Error in POST /api/actions/immunity:", err);
     return new Response("Internal Server Error", { status: 500 });
-=======
+
 import { 
   ActionGetResponse, 
   ActionPostRequest, 
@@ -115,7 +115,7 @@ export const GET = async (req: Request) => {
   } catch (err) {
     console.log("Error in GET /api/actions/immunity:", err);
     return new Response("An error occurred", { status: 500 });
->>>>>>> temp-fixes
+temp-fixes
   }
 };
 
