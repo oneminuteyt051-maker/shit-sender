@@ -6,37 +6,19 @@ export default function Home() {
   const [recipientAddress, setRecipientAddress] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handlePoopAction = (type: string) => {
+  // Универсальная функция для вызова action и получения ответа
+  const performAction = async (actionUrl: string) => {
     if (!recipientAddress.trim()) {
       alert("Please enter a recipient address");
       return;
     }
 
-    const actionUrl = `/api/actions/poop?type=${type}&recipient=${encodeURIComponent(recipientAddress)}`;
-    window.location.href = actionUrl;
-  };
-
-  const handleImmunityAction = () => {
-    window.location.href = `/api/actions/immunity`;
-  };
-
-  const handleTestPoop = async () => {
-    if (!recipientAddress.trim()) {
-      alert("Please enter a recipient address for testing");
-      return;
-    }
-
     setIsProcessing(true);
-
     try {
-      const response = await fetch("/api/process-poop", {
+      const response = await fetch(`${actionUrl}?recipient=${encodeURIComponent(recipientAddress)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userPubkey: "FAKE_USER_PUBKEY",
-          recipientPubkey: recipientAddress,
-          amount: 0.002,
-        }),
+        body: JSON.stringify({ account: "FAKE_USER_PUBKEY" }) // В реальном случае заменить на wallet publicKey
       });
 
       if (!response.ok) {
@@ -44,14 +26,17 @@ export default function Home() {
       }
 
       const result = await response.json();
-      alert(`Test poop sent successfully! Transaction ID: ${result.transactionId}`);
-    } catch (error) {
-      console.error(error);
-      alert("Failed to send test poop.");
+      alert(`Action successful!\nTransaction ID: ${result.transaction?.signature || "N/A"}`);
+    } catch (err) {
+      console.error(err);
+      alert("Action failed. Check console for details.");
     } finally {
       setIsProcessing(false);
     }
   };
+
+  const handlePoopAction = (type: string) => performAction(`/api/actions/poop?type=${type}`);
+  const handleImmunityAction = () => performAction("/api/actions/immunity");
 
   return (
     <div style={{ padding: "2rem", maxWidth: "720px", margin: "0 auto", fontFamily: "Arial, sans-serif" }}>
@@ -67,11 +52,6 @@ export default function Home() {
           <li style={{ opacity: 0.5 }}>(soon) Leaderboard</li>
           <li style={{ opacity: 0.5 }}>(soon) Wipe Poop</li>
         </ul>
-
-        <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-          <a href="/api/actions/poop">→ Open Poop Action</a>
-          <a href="/api/actions/immunity">→ Open Immunity Action</a>
-        </div>
       </div>
 
       {/* Send Poop */}
@@ -88,13 +68,13 @@ export default function Home() {
         />
 
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1rem" }}>
-          <button onClick={() => handlePoopAction("classic")} disabled={!recipientAddress.trim()}>
+          <button onClick={() => handlePoopAction("classic")} disabled={!recipientAddress.trim() || isProcessing}>
             💩 Classic (0.002 SOL)
           </button>
-          <button onClick={() => handlePoopAction("revenge")} disabled={!recipientAddress.trim()}>
+          <button onClick={() => handlePoopAction("revenge")} disabled={!recipientAddress.trim() || isProcessing}>
             😈 Revenge (0.003 SOL)
           </button>
-          <button onClick={() => handlePoopAction("gift")} disabled={!recipientAddress.trim()}>
+          <button onClick={() => handlePoopAction("gift")} disabled={!recipientAddress.trim() || isProcessing}>
             🎁 Gift (0.002 SOL)
           </button>
         </div>
@@ -103,7 +83,7 @@ export default function Home() {
       {/* Immunity */}
       <div style={{ marginTop: "2rem" }}>
         <h3>Immunity</h3>
-        <button onClick={handleImmunityAction}>
+        <button onClick={handleImmunityAction} disabled={isProcessing}>
           🛡️ Get Immunity (0.006 SOL)
         </button>
       </div>
@@ -111,7 +91,7 @@ export default function Home() {
       {/* Debug */}
       <div style={{ marginTop: "2rem", paddingTop: "1rem", borderTop: "1px solid #eee" }}>
         <h3>Debug</h3>
-        <button onClick={handleTestPoop} disabled={!recipientAddress.trim() || isProcessing}>
+        <button onClick={() => handlePoopAction("classic")} disabled={!recipientAddress.trim() || isProcessing}>
           {isProcessing ? "Sending..." : "Test Poop"}
         </button>
       </div>
