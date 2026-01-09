@@ -1,8 +1,7 @@
-<<<<<<< HEAD
 import { ActionGetResponse, ActionPostResponse, createPostResponse } from "@solana/actions";
 import { clusterApiUrl, Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { NextRequest } from "next/server";
-import { COLD_WALLET } from "../../../config";
+import { COLD_WALLET } from "@/app/config";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
