@@ -22,29 +22,46 @@ export default function SendPoopPage() {
   const [recipient, setRecipient] = useState("");
   const [type, setType] = useState<keyof typeof POOP_CONFIG>("classic");
   const [message, setMessage] = useState("");
-  const [wallet, setWallet] = useState<any>(null);
   const [poops, setPoops] = useState<FlyingPoop[]>([]);
   const [poopId, setPoopId] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const solana = (window as any).solana;
-    if (solana && solana.isPhantom) setWallet(solana);
-    else setMessage("Install Phantom Wallet or another Solana wallet");
+    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
   }, []);
 
   const handleSend = async () => {
-    if (!recipient || !wallet) {
-      setMessage("Recipient address and wallet required");
+    if (!recipient) {
+      setMessage("Enter victim address first");
       return;
     }
 
+    setMessage("");
+
     try {
-      // Создаем Deeplink и API запрос на транзакцию
-      const apiUrl = `/api/actions/poop?type=${type}&recipient=${recipient}`;
-      const res = await fetch(apiUrl, {
+      const actionUrl = `${window.location.origin}/api/actions/poop?type=${type}&recipient=${recipient}`;
+
+      if (isMobile) {
+        // Mobile deeplink
+        const phantomLink = `https://phantom.app/ul/v1/action?ref=${encodeURIComponent(actionUrl)}`;
+        setMessage("Redirecting to your wallet...");
+        window.location.href = phantomLink;
+        return;
+      }
+
+      // Desktop: injected wallet
+      const solana = (window as any).solana;
+      if (!solana || !solana.isPhantom) {
+        setMessage("Install Phantom Wallet to send poops");
+        return;
+      }
+
+      await solana.connect();
+
+      const res = await fetch(actionUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account: wallet.publicKey.toString() }),
+        body: JSON.stringify({ account: solana.publicKey.toString() }),
       });
 
       const data = await res.json();
@@ -53,7 +70,7 @@ export default function SendPoopPage() {
         return;
       }
 
-      // Летающие какашки
+      // 5 летящих какашек
       for (let i = 0; i < 5; i++) {
         setPoopId((id) => id + 1);
         setPoops((prev) => [
@@ -72,21 +89,7 @@ export default function SendPoopPage() {
         c.charCodeAt(0)
       );
       const transaction = Transaction.from(txBytes);
-
-      // Подписываем транзакцию через любой кошелек
-      let signedTx;
-      if (wallet.signTransaction) {
-        signedTx = await wallet.signTransaction(transaction);
-      } else if (wallet.signMessage) {
-        // Для кошельков без signTransaction
-        const messageToSign = `PoopProtocol send to ${recipient}`;
-        await wallet.signMessage(new TextEncoder().encode(messageToSign));
-        signedTx = transaction;
-      } else {
-        setMessage("Your wallet is not supported");
-        return;
-      }
-
+      const signedTx = await solana.signTransaction(transaction);
       const connection = new Connection(clusterApiUrl("mainnet-beta"));
       const signature = await connection.sendRawTransaction(signedTx.serialize());
       await connection.confirmTransaction(signature, "confirmed");
@@ -99,37 +102,44 @@ export default function SendPoopPage() {
   };
 
   const handleBuyImmunity = async () => {
-    if (!wallet) {
-      setMessage("Connect your wallet first");
+    const actionUrl = `${window.location.origin}/api/actions/immunity`;
+
+    if (isMobile) {
+      const phantomLink = `https://phantom.app/ul/v1/action?ref=${encodeURIComponent(actionUrl)}`;
+      window.location.href = phantomLink;
       return;
     }
-    try {
-      const apiUrl = `/api/actions/immunity?action=purchase`;
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account: wallet.publicKey.toString() }),
-      });
-      const data = await res.json();
-      if (data.fields?.transaction) {
-        const txBytes = Uint8Array.from(atob(data.fields.transaction), (c) =>
-          c.charCodeAt(0)
-        );
-        const transaction = Transaction.from(txBytes);
-        let signedTx;
-        if (wallet.signTransaction) signedTx = await wallet.signTransaction(transaction);
-        else signedTx = transaction;
 
-        const connection = new Connection(clusterApiUrl("mainnet-beta"));
-        const signature = await connection.sendRawTransaction(signedTx.serialize());
-        await connection.confirmTransaction(signature, "confirmed");
-
-        setMessage(`Immunity purchased! Signature: ${signature}`);
-      }
-    } catch (err: any) {
-      console.error(err);
-      setMessage("Error buying immunity: " + (err.message || err));
+    const solana = (window as any).solana;
+    if (!solana || !solana.isPhantom) {
+      setMessage("Install Phantom Wallet to buy immunity");
+      return;
     }
+
+    await solana.connect();
+
+    const res = await fetch(actionUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account: solana.publicKey.toString() }),
+    });
+
+    const data = await res.json();
+    if (!data || !data.fields?.transaction) {
+      setMessage("API did not return transaction for immunity");
+      return;
+    }
+
+    const txBytes = Uint8Array.from(atob(data.fields.transaction), (c) =>
+      c.charCodeAt(0)
+    );
+    const transaction = Transaction.from(txBytes);
+    const signedTx = await solana.signTransaction(transaction);
+    const connection = new Connection(clusterApiUrl("mainnet-beta"));
+    const signature = await connection.sendRawTransaction(signedTx.serialize());
+    await connection.confirmTransaction(signature, "confirmed");
+
+    setMessage(`Immunity purchased! Signature: ${signature}`);
   };
 
   return (
@@ -191,11 +201,10 @@ export default function SendPoopPage() {
             border: "1px solid #ccc",
             marginBottom: 24,
             fontSize: 16,
-            color: "#000",
+            color: "#000", // черный текст
           }}
         />
 
-        {/* Тип какашки */}
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24 }}>
           {Object.entries(POOP_CONFIG).map(([key, value]) => (
             <button
@@ -231,7 +240,6 @@ export default function SendPoopPage() {
           ))}
         </div>
 
-        {/* Кнопки отправки и иммунитета */}
         <button
           onClick={handleSend}
           style={{
@@ -244,8 +252,13 @@ export default function SendPoopPage() {
             fontWeight: 600,
             fontSize: 16,
             cursor: "pointer",
+            transition: "transform 0.2s, background 0.2s",
             marginBottom: 12,
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e65500")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#ff6600")}
+          onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
+          onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
           Throw Poop!
         </button>
@@ -257,12 +270,17 @@ export default function SendPoopPage() {
             padding: "0.75rem",
             borderRadius: 12,
             border: "none",
-            backgroundColor: "#00aa00",
+            backgroundColor: "#2b7a78",
             color: "#fff",
             fontWeight: 600,
             fontSize: 16,
             cursor: "pointer",
+            transition: "transform 0.2s, background 0.2s",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#3aafa9")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#2b7a78")}
+          onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
+          onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
           Buy Immunity 🛡️
         </button>
