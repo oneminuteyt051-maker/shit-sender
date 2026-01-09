@@ -56,38 +56,40 @@ export const GET = async (req: Request) => {
       icon: new URL("/poop-cover.png", req.url).toString(),
       description: "Send a poop prank to someone on Solana!",
       label: "Poop",
-      links: recipientAddress
-        ? [
-            {
-              label: "💩 Classic (0.002 SOL)",
-              href: `${req.url}?type=classic&recipient=${recipientAddress}`,
-              type: "transaction",
-            },
-            {
-              label: "😈 Revenge (0.003 SOL)",
-              href: `${req.url}?type=revenge&recipient=${recipientAddress}`,
-              type: "transaction",
-            },
-            {
-              label: "🎁 Gift (0.002 SOL)",
-              href: `${req.url}?type=gift&recipient=${recipientAddress}`,
-              type: "transaction",
-            },
-          ]
-        : [
-            {
-              label: "Enter recipient address",
-              href: `${req.url}?recipient={recipient}`,
-              type: "transaction",
-              parameters: [
-                {
-                  name: "recipient",
-                  label: "Recipient address",
-                  required: true,
-                },
-              ],
-            },
-          ],
+      links: {
+        actions: recipientAddress
+          ? [
+              {
+                label: "💩 Classic (0.002 SOL)",
+                href: `${req.url}?type=classic&recipient=${recipientAddress}`,
+                type: "transaction",
+              },
+              {
+                label: "😈 Revenge (0.003 SOL)",
+                href: `${req.url}?type=revenge&recipient=${recipientAddress}`,
+                type: "transaction",
+              },
+              {
+                label: "🎁 Gift (0.002 SOL)",
+                href: `${req.url}?type=gift&recipient=${recipientAddress}`,
+                type: "transaction",
+              },
+            ]
+          : [
+              {
+                label: "Enter recipient address",
+                href: `${req.url}?recipient={recipient}`,
+                type: "transaction",
+                parameters: [
+                  {
+                    name: "recipient",
+                    label: "Recipient address",
+                    required: true,
+                  },
+                ],
+              },
+            ],
+      },
     };
 
     return new Response(JSON.stringify(payload), {
