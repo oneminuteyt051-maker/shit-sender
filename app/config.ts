@@ -22,3 +22,6 @@ export const DEFAULT_RECIPIENT_ADDRESS = "Bg9fFUiD8wxYVJ6E46a6zqgpGykb5N7FbU2g2P
 
 // Reward address for development
 export const REWARD_ADDRESS = "79H21m2P9ay6twFvxoe4REB6jJ6jJ5UHT4HisqkErg83";
+
+// Text to sign for signMessage verification (used by all wallets)
+export const SIGN_MESSAGE_TEXT = "I approve sending a poop prank via Poop Protocol";
