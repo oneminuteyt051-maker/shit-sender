@@ -1,0 +1,7 @@
+Contact: mailto:support@protocol-solana.space
+Project: Poop Protocol
+Preferred-Languages: en, ru
+Policy: https://protocol-solana.space/terms
+Encryption: https://protocol-solana.space/pgp-key.txt
+Hiring: https://protocol-solana.space/
+Ack: https://protocol-solana.space/
