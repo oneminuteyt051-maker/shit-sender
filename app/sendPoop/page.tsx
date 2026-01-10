@@ -12,7 +12,69 @@ import {
 } from "@solana/web3.js";
 import { POOP_CONFIG, TREASURY_ADDRESS } from "@/app/config";
 
-// Типы для анимации
+const IMMUNITY_PRICE = 0.05; 
+
+// Типы для попапа подтверждения
+type ConfirmModalProps = {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    recipient: string;
+    poopType: keyof typeof POOP_CONFIG;
+    isSending: boolean;
+};
+
+// --- КОМПОНЕНТ МОДАЛЬНОГО ОКНА (PREVIEW) ---
+const ConfirmModal = ({ isOpen, onClose, onConfirm, recipient, poopType, isSending }: ConfirmModalProps) => {
+    if (!isOpen) return null;
+
+    const details = POOP_CONFIG[poopType];
+    const shortAddress = recipient.length > 10 ? `${recipient.slice(0, 6)}...${recipient.slice(-6)}` : recipient;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border-2 border-orange-100 transform transition-all scale-100">
+                <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Confirm Prank 🧐</h3>
+                
+                <div className="bg-gray-50 p-4 rounded-xl mb-4 space-y-3 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-gray-500">Recipient:</span>
+                        <span className="font-mono font-bold text-gray-700">{shortAddress}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-500">Item:</span>
+                        <span className="font-bold text-gray-800">{details.icon} {poopType}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-gray-200 pt-2">
+                        <span className="text-gray-500">Total Cost:</span>
+                        <span className="font-bold text-orange-600">{details.amount} SOL</span>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-2 italic text-center">
+                        "I understand this is a joke transaction."
+                    </div>
+                </div>
+
+                <div className="flex gap-3">
+                    <button 
+                        onClick={onClose}
+                        disabled={isSending}
+                        className="flex-1 py-3 rounded-xl font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={onConfirm}
+                        disabled={isSending}
+                        className="flex-1 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-lg flex justify-center items-center gap-2"
+                    >
+                        {isSending ? "Sending..." : "CONFIRM 🔥"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 type FlyingPoop = {
   id: number;
   icon: string;
@@ -31,6 +93,10 @@ export default function SendPoopPage() {
   const [poops, setPoops] = useState<FlyingPoop[]>([]);
   const [poopId, setPoopId] = useState(0);
   const [txSignature, setTxSignature] = useState("");
+  
+  // Состояние для открытия модалки
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   // --- АНИМАЦИЯ ---
   const triggerAnimation = () => {
@@ -49,132 +115,157 @@ export default function SendPoopPage() {
     }
   };
 
-  // --- ЛОГИКА ОТПРАВКИ (Платит User) ---
-  const handleSend = useCallback(async () => {
-    if (!publicKey) {
-      setMessage("Please connect your wallet!");
-      return;
-    }
-    if (!recipient) {
-      setMessage("Enter victim address first");
-      return;
-    }
-
-    setMessage("");
-    setTxSignature("");
-
+  // --- ШАГ 1: ОТКРЫТИЕ ПРЕВЬЮ (ПРОВЕРКА ДАННЫХ) ---
+  const handlePreviewClick = () => {
+    if (!publicKey) return setMessage("Please connect your wallet!");
+    if (!recipient) return setMessage("Enter recipient address first");
+    
     try {
-      setMessage("Preparing transaction...");
+        new PublicKey(recipient); // Проверяем валидность адреса
+        setMessage("");
+        setIsModalOpen(true); // Открываем модалку
+    } catch (e) {
+        setMessage("Invalid Solana address");
+    }
+  };
 
-      // 1. Валидация адреса
-      let recipientPubkey: PublicKey;
-      try {
-        recipientPubkey = new PublicKey(recipient);
-      } catch (e) {
-        setMessage("Invalid victim address");
-        return;
-      }
-
-      // 2. Математика
+  // --- ШАГ 2: РЕАЛЬНАЯ ОТПРАВКА (ВЫЗЫВАЕТСЯ ИЗ МОДАЛКИ) ---
+  const executeTransaction = useCallback(async () => {
+    setIsSending(true);
+    setMessage("Preparing transaction...");
+    
+    try {
+      const recipientPubkey = new PublicKey(recipient);
       const totalAmount = POOP_CONFIG[type].amount;
-      const dustAmount = 0.000001; // Пыль, чтобы транзакция отобразилась у жертвы
-      const profitAmount = totalAmount - dustAmount; // Твой доход
+      const dustAmount = 0.000001; 
+      const profitAmount = totalAmount - dustAmount; 
 
       const transaction = new Transaction();
 
-      // Инструкция 1: Доход ТЕБЕ
+      // 1. Прибыль тебе
       transaction.add(
         SystemProgram.transfer({
-          fromPubkey: publicKey,
+          fromPubkey: publicKey!,
           toPubkey: TREASURY_ADDRESS,
           lamports: Math.floor(profitAmount * LAMPORTS_PER_SOL),
         })
       );
 
-      // Инструкция 2: Пыль ЖЕРТВЕ
+      // 2. Пыль получателю
       transaction.add(
         SystemProgram.transfer({
-          fromPubkey: publicKey,
+          fromPubkey: publicKey!,
           toPubkey: recipientPubkey,
           lamports: Math.floor(dustAmount * LAMPORTS_PER_SOL),
         })
       );
 
-      // Инструкция 3: Memo (Собственно "Письмо")
+      // 3. Memo
       const memoText = `${POOP_CONFIG[type].memo} (via Poop Protocol)`;
       transaction.add(
         new TransactionInstruction({
-          keys: [{ pubkey: publicKey, isSigner: true, isWritable: true }],
+          keys: [{ pubkey: publicKey!, isSigner: true, isWritable: true }],
           data: Buffer.from(memoText, "utf-8"),
           programId: new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
         })
       );
 
-      setMessage("Please approve transaction in your wallet...");
-
-      // 3. Отправка
+      // Отправка
       const signature = await sendTransaction(transaction, connection, { skipPreflight: false });
-
-      setMessage("Confirming transaction...");
+      
+      setMessage("Confirming...");
       await connection.confirmTransaction(signature, "confirmed");
 
       // Успех
+      setIsModalOpen(false); // Закрываем модалку
       triggerAnimation();
       setTxSignature(signature);
       setMessage("Success! Poop thrown! 💩");
+      setRecipient(""); // Очистить поле
 
     } catch (err: any) {
       console.error(err);
-      if (err.message?.includes("User rejected")) {
-        setMessage("Transaction rejected by user");
-      } else {
-        setMessage("Error: " + (err.message || "Transaction failed"));
-      }
+      setMessage("Error: " + (err.message || "Failed"));
+    } finally {
+        setIsSending(false);
     }
   }, [publicKey, recipient, type, connection, sendTransaction]);
 
-  // --- ШАРИНГ (ENGLISH) ---
-  const getShareText = () => {
-    const shortRec = recipient.slice(0, 4) + "..." + recipient.slice(-4);
-    return `I just sent a ${type} poop 💩 to ${shortRec} via Poop Protocol! Send yours here:`;
-  };
+  // --- ПОКУПКА ИММУНИТЕТА (ОСТАВЛЯЕМ КАК ЕСТЬ, ЭТО SELF-TX) ---
+  const handleBuyImmunity = useCallback(async () => {
+    if (!publicKey) return setMessage("Please connect your wallet!");
+    setMessage(""); setTxSignature("");
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://shit-sender.vercel.app';
-  
+    try {
+        setMessage("Preparing Immunity contract...");
+        const transaction = new Transaction();
+
+        transaction.add(
+            SystemProgram.transfer({
+                fromPubkey: publicKey,
+                toPubkey: TREASURY_ADDRESS,
+                lamports: Math.floor(IMMUNITY_PRICE * LAMPORTS_PER_SOL),
+            })
+        );
+
+        const memoText = `🛡️ Immunity Bought by ${publicKey.toString()} (via Poop Protocol)`;
+        transaction.add(
+            new TransactionInstruction({
+                keys: [{ pubkey: publicKey, isSigner: true, isWritable: true }],
+                data: Buffer.from(memoText, "utf-8"),
+                programId: new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+            })
+        );
+
+        const signature = await sendTransaction(transaction, connection, { skipPreflight: false });
+        await connection.confirmTransaction(signature, "confirmed");
+
+        setTxSignature(signature);
+        setMessage("Success! You are now Immune! 🛡️");
+    } catch (err: any) {
+        setMessage("Error: " + (err.message || "Failed"));
+    }
+  }, [publicKey, connection, sendTransaction]);
+
+
+  // Шэринг
+  const getShareText = () => {
+    if (message.includes("Immune")) return `I just bought Immunity 🛡️ on Poop Protocol!`;
+    return `I just sent a ${type} poop 💩 via Poop Protocol!`;
+  };
+  const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://protocol-solana.space';
   const twitterLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(getShareText())}&url=${encodeURIComponent(shareUrl)}`;
-  const telegramLink = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(getShareText())}`;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 font-comic bg-cover bg-center relative overflow-hidden"
          style={{ backgroundImage: "url('/poop-cover.png')" }}>
       
-      {/* Затемнение фона */}
       <div className="absolute inset-0 bg-white/80" />
 
-      {/* Карточка */}
+      {/* МОДАЛКА ПРЕДПРОСМОТРА */}
+      <ConfirmModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onConfirm={executeTransaction}
+        recipient={recipient}
+        poopType={type}
+        isSending={isSending}
+      />
+
       <div className="relative w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl p-6 shadow-2xl text-center z-10 border border-gray-100">
         
-        {/* Header + Custom Connect Button */}
+        {/* Header */}
         <div className="flex flex-col items-center mb-6">
            <h1 className="text-3xl font-extrabold mb-2 text-gray-900 tracking-tight">💩 Poop Protocol</h1>
            <p className="text-gray-500 text-sm mb-4">The #1 Crypto Prank Service</p>
-           
            <div className="w-full wallet-adapter-custom-wrapper">
-             <WalletMultiButton style={{ 
-                width: '100%', 
-                justifyContent: 'center', 
-                backgroundColor: '#2b2b2b',
-                height: '50px',
-                borderRadius: '12px',
-                fontWeight: 'bold',
-                fontSize: '16px'
-             }} />
+             <WalletMultiButton style={{ width: '100%', justifyContent: 'center', backgroundColor: '#2b2b2b', borderRadius: '12px' }} />
            </div>
         </div>
 
-        {/* Input */}
+        {/* Input (RENAMED TO RECIPIENT) */}
         <div className="text-left mb-2 ml-1">
-            <label className="text-xs font-bold text-gray-400 uppercase">Victim's Address</label>
+            <label className="text-xs font-bold text-gray-400 uppercase">Recipient Address (Friend)</label>
         </div>
         <input
           type="text"
@@ -191,76 +282,61 @@ export default function SendPoopPage() {
               key={key}
               onClick={() => setType(key as keyof typeof POOP_CONFIG)}
               className={`flex-1 flex flex-col items-center p-3 rounded-2xl transition-all duration-200 border-2 ${
-                type === key 
-                ? "border-orange-500 bg-orange-50 scale-105 shadow-lg" 
-                : "border-gray-100 bg-white hover:bg-gray-50"
+                type === key ? "border-orange-500 bg-orange-50 scale-105 shadow-lg" : "border-gray-100 bg-white hover:bg-gray-50"
               }`}
             >
-              <div className="text-3xl mb-2 filter drop-shadow-sm">
-                {key === 'classic' ? '💩' : key === 'revenge' ? '👿' : '🎁'}
-              </div>
+              <div className="text-3xl mb-2 filter drop-shadow-sm">{key === 'classic' ? '💩' : key === 'revenge' ? '👿' : '🎁'}</div>
               <span className="font-bold text-xs uppercase text-gray-800 tracking-wide">{key}</span>
               <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full mt-1">{value.amount} SOL</span>
             </button>
           ))}
         </div>
 
-        {/* Action Button */}
+        {/* Action Button: PREVIEW (НЕ SEND) */}
         <button
-          onClick={handleSend}
+          onClick={handlePreviewClick}
           disabled={!connected}
-          className={`w-full p-4 rounded-2xl font-black text-lg shadow-lg transform transition-all active:scale-95 ${
+          className={`w-full p-4 rounded-2xl font-black text-lg shadow-lg transform transition-all active:scale-95 mb-3 ${
             connected 
             ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-orange-500/30" 
             : "bg-gray-200 text-gray-400 cursor-not-allowed"
           }`}
         >
-          {connected ? "THROW POOP! 🚀" : "Connect Wallet to Start"}
+          {connected ? "PREVIEW PRANK 👀" : "Connect Wallet First"}
+        </button>
+
+        {/* Action Button: IMMUNITY */}
+        <button
+          onClick={handleBuyImmunity}
+          disabled={!connected}
+          className={`w-full p-3 rounded-2xl font-bold text-md shadow-md transform transition-all active:scale-95 ${
+            connected 
+            ? "bg-teal-600 text-white hover:bg-teal-700 shadow-teal-500/30" 
+            : "bg-gray-200 text-gray-400 cursor-not-allowed hidden"
+          }`}
+        >
+          Buy Immunity 🛡️ ({IMMUNITY_PRICE} SOL)
         </button>
 
         {/* Status Message */}
-        {message && (
-          <div className={`mt-4 p-3 rounded-lg text-sm font-bold animate-pulse ${message.includes("Error") || message.includes("rejected") ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`}>
+        {message && !message.includes("Preparing") && (
+          <div className={`mt-4 p-3 rounded-lg text-sm font-bold animate-pulse ${message.includes("Error") || message.includes("Connect") || message.includes("Enter") ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`}>
             {message}
           </div>
         )}
 
-        {/* Social Share Block (Hidden until success) */}
+        {/* Share Block */}
         {txSignature && (
             <div className="mt-6 pt-6 border-t border-gray-100 animate-fade-in-up">
-                <p className="text-sm font-bold text-gray-600 mb-3">Tell the world! 👇</p>
-                <div className="flex gap-2">
-                    <a href={twitterLink} target="_blank" rel="noreferrer" 
-                       className="flex-1 bg-black text-white py-3 rounded-xl font-bold text-sm hover:bg-gray-800 transition flex items-center justify-center gap-2">
-                       <span>🐦</span> Tweet
-                    </a>
-                    <a href={telegramLink} target="_blank" rel="noreferrer" 
-                       className="flex-1 bg-blue-500 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-600 transition flex items-center justify-center gap-2">
-                       <span>✈️</span> Telegram
-                    </a>
-                </div>
-                <a href={`https://solscan.io/tx/${txSignature}`} target="_blank" className="block mt-4 text-xs text-gray-400 hover:underline">
-                    View on Solscan
-                </a>
+                <a href={`https://solscan.io/tx/${txSignature}`} target="_blank" className="block text-xs text-gray-400 hover:underline">View on Solscan</a>
+                <a href={twitterLink} target="_blank" className="block mt-2 font-bold text-blue-500 hover:underline">Tweet this! 🐦</a>
             </div>
         )}
-
       </div>
 
-      {/* Flying Poops Animation */}
+      {/* Flying Poops */}
       {poops.map((poop) => (
-        <img
-          key={poop.id}
-          src={poop.icon}
-          className="absolute w-10 h-10 z-50 pointer-events-none"
-          style={{
-            left: `${poop.x}%`,
-            top: `${poop.y}%`,
-            transform: `rotate(${poop.rotation}deg)`,
-            animation: "flyPoop 1.5s ease-out forwards",
-          }}
-          onAnimationEnd={() => setPoops((prev) => prev.filter((p) => p.id !== poop.id))}
-        />
+        <img key={poop.id} src={poop.icon} className="absolute w-10 h-10 z-50 pointer-events-none" style={{ left: `${poop.x}%`, top: `${poop.y}%`, transform: `rotate(${poop.rotation}deg)`, animation: "flyPoop 1.5s ease-out forwards" }} onAnimationEnd={() => setPoops((prev) => prev.filter((p) => p.id !== poop.id))} />
       ))}
       
       <style jsx global>{`
@@ -269,18 +345,9 @@ export default function SendPoopPage() {
           50% { transform: translateY(-300px) rotate(180deg) scale(1.5); opacity: 1; }
           100% { transform: translateY(-800px) rotate(360deg) scale(0.5); opacity: 0; }
         }
-        @keyframes fade-in-up {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-up {
-            animation: fade-in-up 0.5s ease-out forwards;
-        }
-        .wallet-adapter-button {
-            width: 100% !important;
-            justify-content: center !important;
-            font-family: inherit !important;
-        }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+        .wallet-adapter-button { width: 100% !important; justify-content: center !important; font-family: inherit !important; }
       `}</style>
     </div>
   );
