@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { 
@@ -26,32 +26,58 @@ type ConfirmModalProps = {
 
 // --- КОМПОНЕНТ МОДАЛЬНОГО ОКНА (PREVIEW) ---
 const ConfirmModal = ({ isOpen, onClose, onConfirm, recipient, poopType, isSending }: ConfirmModalProps) => {
+    const [isChecked, setIsChecked] = useState(false); // Чекбокс согласия
+
     if (!isOpen) return null;
 
     const details = POOP_CONFIG[poopType];
     const shortAddress = recipient.length > 10 ? `${recipient.slice(0, 6)}...${recipient.slice(-6)}` : recipient;
+    const dustAmount = 0.000001;
+    const serviceFee = (details.amount - dustAmount).toFixed(6);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border-2 border-orange-100 transform transition-all scale-100">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Confirm Prank 🧐</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Transaction Preview 🧐</h3>
                 
-                <div className="bg-gray-50 p-4 rounded-xl mb-4 space-y-3 text-sm">
+                <div className="bg-gray-50 p-4 rounded-xl mb-4 space-y-2 text-sm border border-gray-100">
                     <div className="flex justify-between">
-                        <span className="text-gray-500">Recipient:</span>
+                        <span className="text-gray-500">To (Recipient):</span>
                         <span className="font-mono font-bold text-gray-700">{shortAddress}</span>
                     </div>
-                    <div className="flex justify-between">
-                        <span className="text-gray-500">Item:</span>
-                        <span className="font-bold text-gray-800">{details.icon} {poopType}</span>
+                    
+                    <div className="my-2 border-t border-dashed border-gray-300"></div>
+
+                    {/* ПРОЗРАЧНОСТЬ: Расписываем куда уходят деньги */}
+                    <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Recipient receives:</span>
+                        <span className="font-mono text-gray-700">{dustAmount} SOL</span>
                     </div>
-                    <div className="flex justify-between border-t border-gray-200 pt-2">
-                        <span className="text-gray-500">Total Cost:</span>
-                        <span className="font-bold text-orange-600">{details.amount} SOL</span>
+                    <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Service Fee:</span>
+                        <span className="font-mono text-gray-700">{serviceFee} SOL</span>
                     </div>
-                    <div className="text-xs text-gray-400 mt-2 italic text-center">
-                        "I understand this is a joke transaction."
+                    
+                    <div className="my-2 border-t border-gray-200"></div>
+
+                    <div className="flex justify-between pt-1">
+                        <span className="text-gray-800 font-bold">Total to Pay:</span>
+                        <span className="font-bold text-orange-600 text-lg">{details.amount} SOL</span>
                     </div>
+                </div>
+
+                {/* ЧЕКБОКС: Явное согласие пользователя */}
+                <div className="flex items-start gap-2 mb-4 px-1">
+                    <input 
+                        type="checkbox" 
+                        id="consent"
+                        checked={isChecked}
+                        onChange={(e) => setIsChecked(e.target.checked)}
+                        className="mt-1 w-4 h-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500"
+                    />
+                    <label htmlFor="consent" className="text-xs text-gray-500 leading-tight cursor-pointer select-none">
+                        I understand that I am sending a real on-chain transaction and the funds are non-refundable.
+                    </label>
                 </div>
 
                 <div className="flex gap-3">
@@ -64,10 +90,14 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, recipient, poopType, isSendi
                     </button>
                     <button 
                         onClick={onConfirm}
-                        disabled={isSending}
-                        className="flex-1 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-lg flex justify-center items-center gap-2"
+                        disabled={isSending || !isChecked} // Блокируем, пока нет галочки
+                        className={`flex-1 py-3 rounded-xl font-bold text-white shadow-lg flex justify-center items-center gap-2 transition-all
+                            ${isSending || !isChecked 
+                                ? "bg-gray-300 cursor-not-allowed shadow-none" 
+                                : "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+                            }`}
                     >
-                        {isSending ? "Sending..." : "CONFIRM 🔥"}
+                        {isSending ? "Sign wallet..." : "CONFIRM 🔥"}
                     </button>
                 </div>
             </div>
@@ -94,11 +124,9 @@ export default function SendPoopPage() {
   const [poopId, setPoopId] = useState(0);
   const [txSignature, setTxSignature] = useState("");
   
-  // Состояние для открытия модалки
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
-  // --- АНИМАЦИЯ ---
   const triggerAnimation = () => {
     for (let i = 0; i < 15; i++) {
       setPoopId((id) => id + 1);
@@ -115,24 +143,22 @@ export default function SendPoopPage() {
     }
   };
 
-  // --- ШАГ 1: ОТКРЫТИЕ ПРЕВЬЮ (ПРОВЕРКА ДАННЫХ) ---
   const handlePreviewClick = () => {
     if (!publicKey) return setMessage("Please connect your wallet!");
     if (!recipient) return setMessage("Enter recipient address first");
     
     try {
-        new PublicKey(recipient); // Проверяем валидность адреса
+        new PublicKey(recipient); 
         setMessage("");
-        setIsModalOpen(true); // Открываем модалку
+        setIsModalOpen(true); 
     } catch (e) {
         setMessage("Invalid Solana address");
     }
   };
 
-  // --- ШАГ 2: РЕАЛЬНАЯ ОТПРАВКА (ВЫЗЫВАЕТСЯ ИЗ МОДАЛКИ) ---
   const executeTransaction = useCallback(async () => {
     setIsSending(true);
-    setMessage("Preparing transaction...");
+    setMessage("Please approve in wallet...");
     
     try {
       const recipientPubkey = new PublicKey(recipient);
@@ -170,18 +196,17 @@ export default function SendPoopPage() {
         })
       );
 
-      // Отправка
-      const signature = await sendTransaction(transaction, connection, { skipPreflight: false });
+      // ТЕХНИЧЕСКОЕ ИЗМЕНЕНИЕ: Убрали { skipPreflight: false }
+      const signature = await sendTransaction(transaction, connection);
       
-      setMessage("Confirming...");
+      setMessage("Confirming transaction...");
       await connection.confirmTransaction(signature, "confirmed");
 
-      // Успех
-      setIsModalOpen(false); // Закрываем модалку
+      setIsModalOpen(false); 
       triggerAnimation();
       setTxSignature(signature);
       setMessage("Success! Poop thrown! 💩");
-      setRecipient(""); // Очистить поле
+      setRecipient(""); 
 
     } catch (err: any) {
       console.error(err);
@@ -191,7 +216,7 @@ export default function SendPoopPage() {
     }
   }, [publicKey, recipient, type, connection, sendTransaction]);
 
-  // --- ПОКУПКА ИММУНИТЕТА (ОСТАВЛЯЕМ КАК ЕСТЬ, ЭТО SELF-TX) ---
+  // --- IMMUNITY (Убрал skipPreflight и здесь) ---
   const handleBuyImmunity = useCallback(async () => {
     if (!publicKey) return setMessage("Please connect your wallet!");
     setMessage(""); setTxSignature("");
@@ -217,7 +242,7 @@ export default function SendPoopPage() {
             })
         );
 
-        const signature = await sendTransaction(transaction, connection, { skipPreflight: false });
+        const signature = await sendTransaction(transaction, connection);
         await connection.confirmTransaction(signature, "confirmed");
 
         setTxSignature(signature);
@@ -228,7 +253,6 @@ export default function SendPoopPage() {
   }, [publicKey, connection, sendTransaction]);
 
 
-  // Шэринг
   const getShareText = () => {
     if (message.includes("Immune")) return `I just bought Immunity 🛡️ on Poop Protocol!`;
     return `I just sent a ${type} poop 💩 via Poop Protocol!`;
@@ -263,7 +287,7 @@ export default function SendPoopPage() {
            </div>
         </div>
 
-        {/* Input (RENAMED TO RECIPIENT) */}
+        {/* Input */}
         <div className="text-left mb-2 ml-1">
             <label className="text-xs font-bold text-gray-400 uppercase">Recipient Address (Friend)</label>
         </div>
@@ -292,7 +316,7 @@ export default function SendPoopPage() {
           ))}
         </div>
 
-        {/* Action Button: PREVIEW (НЕ SEND) */}
+        {/* Action Button */}
         <button
           onClick={handlePreviewClick}
           disabled={!connected}
@@ -305,7 +329,7 @@ export default function SendPoopPage() {
           {connected ? "PREVIEW PRANK 👀" : "Connect Wallet First"}
         </button>
 
-        {/* Action Button: IMMUNITY */}
+        {/* Immunity Button */}
         <button
           onClick={handleBuyImmunity}
           disabled={!connected}
@@ -318,8 +342,15 @@ export default function SendPoopPage() {
           Buy Immunity 🛡️ ({IMMUNITY_PRICE} SOL)
         </button>
 
+        {/* Footer Links (TRUST ANCHORS) */}
+        <div className="mt-6 pt-4 border-t border-gray-100 flex justify-center gap-4 text-xs text-gray-400">
+            <a href="/terms" target="_blank" className="hover:text-gray-600 hover:underline">Terms of Service</a>
+            <a href="/privacy" target="_blank" className="hover:text-gray-600 hover:underline">Privacy Policy</a>
+            <a href="https://twitter.com/..." target="_blank" className="hover:text-gray-600 hover:underline">Support</a>
+        </div>
+
         {/* Status Message */}
-        {message && !message.includes("Preparing") && (
+        {message && !message.includes("Preparing") && !message.includes("Confirming") && (
           <div className={`mt-4 p-3 rounded-lg text-sm font-bold animate-pulse ${message.includes("Error") || message.includes("Connect") || message.includes("Enter") ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`}>
             {message}
           </div>
@@ -334,7 +365,7 @@ export default function SendPoopPage() {
         )}
       </div>
 
-      {/* Flying Poops */}
+      {/* Animation */}
       {poops.map((poop) => (
         <img key={poop.id} src={poop.icon} className="absolute w-10 h-10 z-50 pointer-events-none" style={{ left: `${poop.x}%`, top: `${poop.y}%`, transform: `rotate(${poop.rotation}deg)`, animation: "flyPoop 1.5s ease-out forwards" }} onAnimationEnd={() => setPoops((prev) => prev.filter((p) => p.id !== poop.id))} />
       ))}
