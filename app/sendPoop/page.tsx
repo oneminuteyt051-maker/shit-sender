@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { 
     PublicKey, 
     Transaction, 
     SystemProgram, 
-    LAMPORTS_PER_SOL, 
-    TransactionInstruction 
+    TransactionInstruction,
+    LAMPORTS_PER_SOL 
 } from "@solana/web3.js";
 import { POOP_CONFIG, TREASURY_ADDRESS } from "@/app/config";
 
@@ -26,7 +26,7 @@ type ConfirmModalProps = {
 
 // --- КОМПОНЕНТ МОДАЛЬНОГО ОКНА (PREVIEW) ---
 const ConfirmModal = ({ isOpen, onClose, onConfirm, recipient, poopType, isSending }: ConfirmModalProps) => {
-    const [isChecked, setIsChecked] = useState(false); // Чекбокс согласия
+    const [isChecked, setIsChecked] = useState(false);
 
     if (!isOpen) return null;
 
@@ -38,9 +38,9 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, recipient, poopType, isSendi
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border-2 border-orange-100 transform transition-all scale-100">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Transaction Preview 🧐</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-3 text-center">Transaction Preview 🧐</h3>
                 
-                <div className="bg-gray-50 p-4 rounded-xl mb-4 space-y-2 text-sm border border-gray-100">
+                <div className="bg-gray-50 p-4 rounded-xl mb-3 space-y-2 text-sm border border-gray-100">
                     <div className="flex justify-between">
                         <span className="text-gray-500">To (Recipient):</span>
                         <span className="font-mono font-bold text-gray-700">{shortAddress}</span>
@@ -66,6 +66,12 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, recipient, poopType, isSendi
                     </div>
                 </div>
 
+                {/* TECH DETAILS (Для аудиторов) */}
+                <div className="bg-blue-50 p-2 rounded-lg mb-4 text-[10px] text-blue-800 font-mono">
+                    <p>Network: Solana Mainnet-Beta</p>
+                    <p>Programs: SystemProgram, SplMemo</p>
+                </div>
+
                 {/* ЧЕКБОКС: Явное согласие пользователя */}
                 <div className="flex items-start gap-2 mb-4 px-1">
                     <input 
@@ -76,7 +82,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, recipient, poopType, isSendi
                         className="mt-1 w-4 h-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500"
                     />
                     <label htmlFor="consent" className="text-xs text-gray-500 leading-tight cursor-pointer select-none">
-                        I understand that I am sending a real on-chain transaction and the funds are non-refundable.
+                        I understand that I am sending a real on-chain transaction. Funds are non-refundable.
                     </label>
                 </div>
 
@@ -90,14 +96,14 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, recipient, poopType, isSendi
                     </button>
                     <button 
                         onClick={onConfirm}
-                        disabled={isSending || !isChecked} // Блокируем, пока нет галочки
+                        disabled={isSending || !isChecked}
                         className={`flex-1 py-3 rounded-xl font-bold text-white shadow-lg flex justify-center items-center gap-2 transition-all
                             ${isSending || !isChecked 
                                 ? "bg-gray-300 cursor-not-allowed shadow-none" 
                                 : "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
                             }`}
                     >
-                        {isSending ? "Sign wallet..." : "CONFIRM 🔥"}
+                        {isSending ? "Signing..." : "CONFIRM 🔥"}
                     </button>
                 </div>
             </div>
@@ -196,7 +202,6 @@ export default function SendPoopPage() {
         })
       );
 
-      // ТЕХНИЧЕСКОЕ ИЗМЕНЕНИЕ: Убрали { skipPreflight: false }
       const signature = await sendTransaction(transaction, connection);
       
       setMessage("Confirming transaction...");
@@ -216,7 +221,7 @@ export default function SendPoopPage() {
     }
   }, [publicKey, recipient, type, connection, sendTransaction]);
 
-  // --- IMMUNITY (Убрал skipPreflight и здесь) ---
+  // --- IMMUNITY ---
   const handleBuyImmunity = useCallback(async () => {
     if (!publicKey) return setMessage("Please connect your wallet!");
     setMessage(""); setTxSignature("");
@@ -252,13 +257,13 @@ export default function SendPoopPage() {
     }
   }, [publicKey, connection, sendTransaction]);
 
-
   const getShareText = () => {
     if (message.includes("Immune")) return `I just bought Immunity 🛡️ on Poop Protocol!`;
     return `I just sent a ${type} poop 💩 via Poop Protocol!`;
   };
   const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://protocol-solana.space';
   const twitterLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(getShareText())}&url=${encodeURIComponent(shareUrl)}`;
+  const shortTreasury = `${TREASURY_ADDRESS.toBase58().slice(0, 4)}...${TREASURY_ADDRESS.toBase58().slice(-4)}`;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 font-comic bg-cover bg-center relative overflow-hidden"
@@ -342,11 +347,16 @@ export default function SendPoopPage() {
           Buy Immunity 🛡️ ({IMMUNITY_PRICE} SOL)
         </button>
 
-        {/* Footer Links (TRUST ANCHORS) */}
-        <div className="mt-6 pt-4 border-t border-gray-100 flex justify-center gap-4 text-xs text-gray-400">
-            <a href="/terms" target="_blank" className="hover:text-gray-600 hover:underline">Terms of Service</a>
-            <a href="/privacy" target="_blank" className="hover:text-gray-600 hover:underline">Privacy Policy</a>
-            <a href="https://twitter.com/..." target="_blank" className="hover:text-gray-600 hover:underline">Support</a>
+        {/* Footer Links & TRUST ANCHORS */}
+        <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col gap-3">
+            <div className="flex justify-center gap-4 text-xs text-gray-400">
+                <a href="/terms" target="_blank" className="hover:text-gray-600 hover:underline">Terms</a>
+                <a href="/privacy" target="_blank" className="hover:text-gray-600 hover:underline">Privacy</a>
+                <a href="/.well-known/security.txt" target="_blank" className="hover:text-gray-600 hover:underline">Security</a>
+            </div>
+            <div className="text-[10px] text-gray-300 font-mono">
+                Service Wallet: {shortTreasury}
+            </div>
         </div>
 
         {/* Status Message */}
